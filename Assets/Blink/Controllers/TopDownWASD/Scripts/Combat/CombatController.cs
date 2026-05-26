@@ -46,6 +46,12 @@ namespace BLINK.Controller
     void Awake()
     {
         if (animator == null) animator = GetComponent<Animator>();
+
+        // Ensure Combat layer exists (for separate attack animations)
+        if (animator != null && animator.layerCount <= 1)
+        {
+            Debug.LogWarning("Animator does not have a 'Combat' layer. Run 'BLINK → Combat → Setup Combat Assets' first.");
+        }
     }
 
     void Update()

@@ -1222,8 +1222,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BLINK.Controller.CombatController
   animator: {fileID: 200010114}
-  damagePopupPrefab: {fileID: 0}
-  hitEffectPrefab: {fileID: 0}
+  damagePopupPrefab: {fileID: 2713816936244421766, guid: 14de2299df584b9469486474f4b914e4, type: 3}
+  hitEffectPrefab: {fileID: 1737623684126279447, guid: 68cfc227f6f633b4490ca7771f071986, type: 3}
   attackRange: 1.6
   attackRadius: 0.8
   enemyLayer:
@@ -1965,7 +1965,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6296322059486371191, guid: 04213794d12ae7444b20e8697f62396d, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 5.079084
+      value: 6.381
       objectReference: {fileID: 0}
     - target: {fileID: 6296322059486371191, guid: 04213794d12ae7444b20e8697f62396d, type: 3}
       propertyPath: m_LocalPosition.z

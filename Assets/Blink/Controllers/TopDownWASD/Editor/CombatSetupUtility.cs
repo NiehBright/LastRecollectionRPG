@@ -4,9 +4,11 @@ using UnityEditor.Animations;
 using UnityEngine.UI;
 using TMPro;
 
-// Editor utility to create prefabs and an animator controller to test the combat system.
-// Run from menu: BLINK -> Combat -> Setup Combat Assets
-public static class CombatSetupUtility
+namespace Blink.Controllers.TopDownWASD.Editor
+{
+    // Editor utility to create prefabs and an animator controller to test the combat system.
+    // Run from menu: BLINK -> Combat -> Setup Combat Assets
+    public static class CombatSetupUtility
 {
     [MenuItem("BLINK/Combat/Setup Combat Assets")]
     public static void SetupCombatAssets()
@@ -88,8 +90,30 @@ public static class CombatSetupUtility
                 ac.AddParameter(pname, AnimatorControllerParameterType.Trigger);
         }
 
-        // create simple animation clips and add AnyState transitions into the chosen controller
-        var rootSM = ac.layers[0].stateMachine;
+        // Create a new layer for combat attacks (separate from Locomotion)
+        if (ac.layers.Length <= 1)
+        {
+            ac.AddLayer("Combat");
+        }
+        
+        AnimatorControllerLayer combatLayer = ac.layers[ac.layers.Length - 1];
+        if (combatLayer.name != "Combat")
+        {
+            combatLayer.name = "Combat";
+        }
+        
+        var rootSm = combatLayer.stateMachine;
+        
+        // Create Idle state first in Combat layer
+        AnimatorState idleState = FindStateByName(rootSm, "Idle");
+        if (idleState == null)
+        {
+            var idleChild = rootSm.AddState("Idle");
+            idleState = GetAnimatorStateFromChild(idleChild);
+        }
+
+        // Create animation clips and setup combo chain: Idle -> Attack1 -> Attack2 -> Attack3 -> Attack4 -> Idle
+        AnimatorState previousState = idleState;
         for (int i = 1; i <= 4; i++)
         {
             AnimationClip clip = new AnimationClip();
@@ -111,36 +135,88 @@ public static class CombatSetupUtility
             EnsureHitAnimationEvent(clip, i - 1);
 
             // add state if not already present
-            AnimatorState existingState = FindStateByName(rootSM, "Attack" + i);
-            if (existingState != null)
+            AnimatorState attackState = FindStateByName(rootSm, "Attack" + i);
+            if (attackState == null)
             {
-                existingState.motion = clip;
+                var child = rootSm.AddState("Attack" + i);
+                attackState = GetAnimatorStateFromChild(child);
             }
-            else
-            {
-                var child = rootSM.AddState("Attack" + i);
-                AnimatorState dest = GetAnimatorStateFromChild(child);
-                if (dest != null) dest.motion = clip;
-            }
+            if (attackState != null)
+                attackState.motion = clip;
 
-            // add AnyState transition if missing
-            bool hasTrans = false;
-            foreach (var t in rootSM.anyStateTransitions)
+            // Transition FROM previous state (or Idle) TO this attack state
+            if (previousState != null && attackState != null)
             {
-                if (t.destinationState != null && t.destinationState.name == "Attack" + i) { hasTrans = true; break; }
-            }
-            if (!hasTrans)
-            {
-                // find the state reference we just created
-                AnimatorState dest = FindStateByName(rootSM, "Attack" + i);
-                if (dest != null)
+                bool hasTransition = false;
+                foreach (var trans in previousState.transitions)
                 {
-                    var trans = rootSM.AddAnyStateTransition(dest);
-                    trans.AddCondition(AnimatorConditionMode.If, 0, "Attack" + i);
-                    trans.hasExitTime = false;
-                    trans.duration = 0f;
+                    if (trans.destinationState == attackState && TransitionHasCondition(trans, "Attack" + i))
+                    {
+                        hasTransition = true;
+                        break;
+                    }
+                }
+                if (!hasTransition)
+                {
+                    var transToAttack = previousState.AddTransition(attackState);
+                    transToAttack.AddCondition(AnimatorConditionMode.If, 0, "Attack" + i);
+                    transToAttack.hasExitTime = false;
+                    transToAttack.duration = 0f;
                 }
             }
+
+            // Transition FROM this attack TO Idle (if attack combo ends)
+            if (attackState != null && idleState != null)
+            {
+                bool hasIdleTransition = false;
+                foreach (var trans in attackState.transitions)
+                {
+                    if (trans.destinationState == idleState)
+                    {
+                        hasIdleTransition = true;
+                        break;
+                    }
+                }
+                if (!hasIdleTransition)
+                {
+                    var transToIdle = attackState.AddTransition(idleState);
+                    transToIdle.hasExitTime = true;
+                    transToIdle.exitTime = 0.9f;
+                    transToIdle.duration = 0.1f;
+                }
+            }
+
+            // If not the last attack, create transition to next attack
+            if (i < 4 && attackState != null)
+            {
+                AnimatorState nextAttackState = FindStateByName(rootSm, "Attack" + (i + 1));
+                if (nextAttackState == null)
+                {
+                    var nextChild = rootSm.AddState("Attack" + (i + 1));
+                    nextAttackState = GetAnimatorStateFromChild(nextChild);
+                }
+                if (nextAttackState != null)
+                {
+                    bool hasComboTransition = false;
+                    foreach (var trans in attackState.transitions)
+                    {
+                        if (trans.destinationState == nextAttackState && TransitionHasCondition(trans, "Attack" + (i + 1)))
+                        {
+                            hasComboTransition = true;
+                            break;
+                        }
+                    }
+                    if (!hasComboTransition)
+                    {
+                        var comboTrans = attackState.AddTransition(nextAttackState);
+                        comboTrans.AddCondition(AnimatorConditionMode.If, 0, "Attack" + (i + 1));
+                        comboTrans.hasExitTime = false;
+                        comboTrans.duration = 0f;
+                    }
+                }
+            }
+
+            previousState = attackState;
         }
 
         AssetDatabase.SaveAssets();
@@ -186,7 +262,7 @@ public static class CombatSetupUtility
             if (selectedAnimator != null)
             {
                 // assign the controller asset we created/modified
-                var controllerAsset = AssetDatabase.LoadAssetAtPath<AnimatorController>(usedControllerPath);
+                var controllerAsset = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(usedControllerPath);
                 if (controllerAsset != null)
                 {
                     selectedAnimator.runtimeAnimatorController = controllerAsset;
@@ -217,19 +293,39 @@ public static class CombatSetupUtility
 
     static void AddTagIfMissing(string tag)
     {
-        var tagManager = new SerializedObject(AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset")[0]);
-        var tagsProp = tagManager.FindProperty("tags");
-        bool found = false;
-        for (int i = 0; i < tagsProp.arraySize; i++)
+        try
         {
-            var t = tagsProp.GetArrayElementAtIndex(i);
-            if (t.stringValue == tag) { found = true; break; }
+            var allAssets = AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset");
+            if (allAssets == null || allAssets.Length == 0)
+            {
+                Debug.LogWarning("Could not find TagManager.asset at ProjectSettings/TagManager.asset");
+                return;
+            }
+
+            var tagManager = new SerializedObject(allAssets[0]);
+            var tagsProp = tagManager.FindProperty("tags");
+            if (tagsProp == null)
+            {
+                Debug.LogWarning("Could not find 'tags' property in TagManager");
+                return;
+            }
+
+            bool found = false;
+            for (int i = 0; i < tagsProp.arraySize; i++)
+            {
+                var t = tagsProp.GetArrayElementAtIndex(i);
+                if (t.stringValue == tag) { found = true; break; }
+            }
+            if (!found)
+            {
+                tagsProp.InsertArrayElementAtIndex(tagsProp.arraySize);
+                tagsProp.GetArrayElementAtIndex(tagsProp.arraySize - 1).stringValue = tag;
+                tagManager.ApplyModifiedProperties();
+            }
         }
-        if (!found)
+        catch (System.Exception ex)
         {
-            tagsProp.InsertArrayElementAtIndex(tagsProp.arraySize);
-            tagsProp.GetArrayElementAtIndex(tagsProp.arraySize - 1).stringValue = tag;
-            tagManager.ApplyModifiedProperties();
+            Debug.LogWarning($"Failed to add tag '{tag}': {ex.Message}");
         }
     }
 
@@ -263,6 +359,17 @@ public static class CombatSetupUtility
         return null;
     }
 
+    static bool TransitionHasCondition(AnimatorStateTransition trans, string parameterName)
+    {
+        if (trans == null) return false;
+        foreach (var condition in trans.conditions)
+        {
+            if (condition.parameter == parameterName)
+                return true;
+        }
+        return false;
+    }
+
     static void EnsureHitAnimationEvent(AnimationClip clip, int attackIndex)
     {
         if (clip == null) return;
@@ -293,4 +400,4 @@ public static class CombatSetupUtility
         EditorUtility.SetDirty(clip);
     }
 }
-
+}
