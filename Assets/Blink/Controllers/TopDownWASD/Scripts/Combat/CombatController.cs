@@ -1,6 +1,8 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.Playables;
+using UnityEngine.Animations;
 
 // Combat system for Top-down RPG
 // - Left click cycles through a 4-hit combo (Attack1..Attack4)
@@ -28,6 +30,10 @@ namespace BLINK.Controller
     [Tooltip("Use Animation Events (OnAttackHit with int parameter). If event is missing, a fallback hit-time is used.")]
     public bool useAnimationEvents = true;
 
+    [Header("Direct Attack Clips (assign these to play attacks)")]
+    [Tooltip("Assign 4 attack animation clips here. If empty, the script will fallback to Animator triggers.")]
+    public AnimationClip[] attackClips = new AnimationClip[4];
+
     [Header("Hit Streak / Scaling")]
     public int hitStreak = 0;
     public float streakDecayTime = 5f; // seconds without hitting to reset streak
@@ -43,6 +49,11 @@ namespace BLINK.Controller
     int _activeAttackIndex = -1;
     bool _activeAttackHitConsumed;
 
+    // PlayableGraph for direct clip playback (overrides animator while playing)
+    PlayableGraph _playableGraph;
+    AnimationPlayableOutput _animOutput;
+    Playable _currentClipPlayable = Playable.Null;
+
     void Awake()
     {
         if (animator == null) animator = GetComponent<Animator>();
@@ -51,6 +62,36 @@ namespace BLINK.Controller
         if (animator != null && animator.layerCount <= 1)
         {
             Debug.LogWarning("Animator does not have a 'Combat' layer. Run 'BLINK → Combat → Setup Combat Assets' first.");
+        }
+    }
+
+    void OnEnable()
+    {
+        // prepare playable graph for direct clip playback
+        if (animator != null)
+        {
+            _playableGraph = PlayableGraph.Create(name + "_CombatGraph");
+            _animOutput = AnimationPlayableOutput.Create(_playableGraph, "CombatOutput", animator);
+            // initially no source
+            _animOutput.SetSourcePlayable(Playable.Null);
+        }
+    }
+
+    void OnDisable()
+    {
+        try
+        {
+            if (_currentClipPlayable.IsValid())
+            {
+                _currentClipPlayable.Destroy();
+                _currentClipPlayable = Playable.Null;
+            }
+        }
+        catch { }
+
+        if (_playableGraph.IsValid())
+        {
+            _playableGraph.Destroy();
         }
     }
 
@@ -93,9 +134,43 @@ namespace BLINK.Controller
 
     IEnumerator PerformAttack(int index)
     {
-        // play animator trigger
+        // try to play direct clip first (if assigned), otherwise fall back to animator trigger
         string trig = "Attack" + (index + 1);
-        if (animator != null && AnimatorHasParameter(animator, trig)) animator.SetTrigger(trig);
+        bool playedClip = false;
+        if (attackClips != null && index >= 0 && index < attackClips.Length && attackClips[index] != null && animator != null)
+        {
+            var clip = attackClips[index];
+            try
+            {
+                if (!_playableGraph.IsValid())
+                {
+                    _playableGraph = PlayableGraph.Create(name + "_CombatGraph");
+                    _animOutput = AnimationPlayableOutput.Create(_playableGraph, "CombatOutput", animator);
+                }
+
+                // destroy previous playable if any
+                if (_currentClipPlayable.IsValid())
+                {
+                    _currentClipPlayable.Destroy();
+                    _currentClipPlayable = Playable.Null;
+                }
+
+                var clipPlayable = AnimationClipPlayable.Create(_playableGraph, clip);
+                clipPlayable.SetApplyFootIK(false);
+                clipPlayable.SetApplyPlayableIK(false);
+                _currentClipPlayable = (Playable)clipPlayable;
+                _animOutput.SetSourcePlayable(_currentClipPlayable);
+                _playableGraph.Play();
+                playedClip = true;
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning("Failed to play clip directly: " + ex.Message);
+                playedClip = false;
+            }
+        }
+
+        if (!playedClip && animator != null && AnimatorHasParameter(animator, trig)) animator.SetTrigger(trig);
 
         _activeAttackIndex = index;
         _activeAttackHitConsumed = false;
@@ -133,6 +208,21 @@ namespace BLINK.Controller
         _comboIndex = 0;
         _currentAttackCoroutine = null;
         _activeAttackIndex = -1;
+
+        // stop any playing clip and clear output
+        if (_animOutput.IsOutputValid())
+        {
+            try
+            {
+                if (_currentClipPlayable.IsValid())
+                {
+                    _currentClipPlayable.Destroy();
+                    _currentClipPlayable = Playable.Null;
+                }
+                _animOutput.SetSourcePlayable(Playable.Null);
+            }
+            catch { }
+        }
     }
 
     // Animation Event target: add this event to attack clips and pass 0..3 index.
