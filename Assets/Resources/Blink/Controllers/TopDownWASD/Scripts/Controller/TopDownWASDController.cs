@@ -15,6 +15,9 @@ namespace BLINK.Controller
         public Animator _anim;
         public CharacterController _characterController;
 
+        // Combat integration: cached reference to CombatController (auto-found)
+        CombatController _combatController;
+
         // CAMERA
         public Camera playerCamera;
         public bool cameraEnabled = true;
@@ -92,6 +95,7 @@ namespace BLINK.Controller
         {
             _actualMoveSpeed = moveSpeed;
             InitReferences();
+            _combatController = GetComponent<CombatController>();
             
             if (cameraEnabled)
             {
@@ -102,7 +106,10 @@ namespace BLINK.Controller
 
         void Update()
         {
-            if (movementEnabled) HandleMovement();
+            // Block WASD movement when attacking (lunge is handled by CombatController)
+            bool isAttacking = _combatController != null && _combatController.IsAttacking;
+            if (movementEnabled && !isAttacking) HandleMovement();
+            else if (movementEnabled && isAttacking) HandleRotationOnly();
             if (cameraEnabled)  CameraLogic();
         }
 
@@ -377,6 +384,41 @@ namespace BLINK.Controller
 
             _verticalSpeed -= gravity * Time.deltaTime;
 
+            _characterController.Move(_displacement);
+        }
+
+        /// <summary>
+        /// During attacks: no WASD movement, but the character still rotates toward the mouse.
+        /// This makes combat feel responsive — the player always faces where they're aiming.
+        /// </summary>
+        private void HandleRotationOnly()
+        {
+            Vector3 point = GetPoint();
+            _lookAngle = Mathf.Atan2(transform.position.z - point.z, point.x - transform.position.x) * Mathf.Rad2Deg + 90;
+
+            // Smoothly rotate toward mouse
+            _targetRotationAngle = _lookAngle;
+            if (!Mathf.Approximately(_rotationAngle, _targetRotationAngle))
+            {
+                _rotationAngle = Mathf.SmoothDampAngle(_rotationAngle, _targetRotationAngle,
+                    ref _angularVelocity, dampSmoothTimeRotation * 0.5f); // faster rotation during combat
+                transform.rotation = Quaternion.Euler(0, _rotationAngle, 0);
+            }
+
+            // Zero out animator locomotion params
+            _anim.SetFloat(HorizontalHash, 0, animatorSmoothTime, Time.deltaTime);
+            _anim.SetFloat(VerticalHash, 0, animatorSmoothTime, Time.deltaTime);
+
+            // Apply gravity only
+            if (_characterController.isGrounded)
+                _displacement.y = -gravity * Time.deltaTime;
+            else
+            {
+                _verticalSpeed -= gravity * Time.deltaTime;
+                _displacement.y = _verticalSpeed * Time.deltaTime;
+            }
+            _displacement.x = 0;
+            _displacement.z = 0;
             _characterController.Move(_displacement);
         }
 

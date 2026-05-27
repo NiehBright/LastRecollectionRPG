@@ -4,24 +4,20 @@ using UnityEditor.Animations;
 using UnityEngine.UI;
 using TMPro;
 
+// Alias to avoid conflict with Suriyun's global AnimatorController class
+using EditorAnimatorController = UnityEditor.Animations.AnimatorController;
+
 namespace Blink.Controllers.TopDownWASD.Editor
 {
     // Editor utility to create prefabs and an animator controller to test the combat system.
     // Run from menu: BLINK -> Combat -> Setup Combat Assets
     public static class CombatSetupUtility
-{
+    {
     [MenuItem("BLINK/Combat/Setup Combat Assets")]
     public static void SetupCombatAssets()
     {
-        string baseFolder = "Assets/Blink/Controllers/TopDownWASD/Prefabs";
-        if (!AssetDatabase.IsValidFolder("Assets/Blink/Controllers/TopDownWASD"))
-        {
-            AssetDatabase.CreateFolder("Assets/Blink/Controllers", "TopDownWASD");
-        }
-        if (!AssetDatabase.IsValidFolder(baseFolder))
-        {
-            AssetDatabase.CreateFolder("Assets/Blink/Controllers/TopDownWASD", "Prefabs");
-        }
+        string baseFolder = "Assets/Resources/Blink/Controllers/TopDownWASD/Prefabs";
+        EnsureFolderExists("Assets/Resources/Blink/Controllers/TopDownWASD/Prefabs");
 
         AddTagIfMissing("Enemy");
 
@@ -67,61 +63,67 @@ namespace Blink.Controllers.TopDownWASD.Editor
         GameObject.DestroyImmediate(enemy);
 
         // --- Find existing Animator Controller (preferred) or create one ---
-        string existingControllerPath = "Assets/Blink/Controllers/TopDownWASD/Character/TopDownWASDAnimator.controller";
-        UnityEditor.Animations.AnimatorController ac = AssetDatabase.LoadAssetAtPath<UnityEditor.Animations.AnimatorController>(existingControllerPath);
-        string usedControllerPath = existingControllerPath;
+        string controllerPath = "Assets/Resources/Blink/Controllers/TopDownWASD/Character/TopDownWASDAnimator.controller";
+        EditorAnimatorController ac = AssetDatabase.LoadAssetAtPath<EditorAnimatorController>(controllerPath);
+        string usedControllerPath = controllerPath;
+
         if (ac == null)
         {
-            // fallback: create a controller in Prefabs folder
+            // fallback: try non-Resources path
+            controllerPath = "Assets/Blink/Controllers/TopDownWASD/Character/TopDownWASDAnimator.controller";
+            ac = AssetDatabase.LoadAssetAtPath<EditorAnimatorController>(controllerPath);
+            usedControllerPath = controllerPath;
+        }
+        if (ac == null)
+        {
+            // final fallback: create a controller in Prefabs folder
             usedControllerPath = baseFolder + "/TopDownWASDAnimator.controller";
-            ac = UnityEditor.Animations.AnimatorController.CreateAnimatorControllerAtPath(usedControllerPath);
+            ac = EditorAnimatorController.CreateAnimatorControllerAtPath(usedControllerPath);
         }
 
         // Add 4 trigger parameters (Attack1..Attack4)
         for (int i = 1; i <= 4; i++)
         {
             string pname = "Attack" + i;
-            bool found = false;
-            foreach (var p in ac.parameters)
-            {
-                if (p.name == pname) { found = true; break; }
-            }
-            if (!found)
+            if (!HasParameter(ac, pname))
                 ac.AddParameter(pname, AnimatorControllerParameterType.Trigger);
         }
 
-        // Create a new layer for combat attacks (separate from Locomotion)
+        // ─────────── COMBAT LAYER SETUP ───────────
         AnimatorControllerLayer combatLayer = null;
         bool combatLayerExists = false;
+        int combatLayerIndex = -1;
         
-        // Check if Combat layer already exists
-        foreach (var layer in ac.layers)
+        for (int i = 0; i < ac.layers.Length; i++)
         {
-            if (layer.name == "Combat")
+            if (ac.layers[i].name == "Combat")
             {
-                combatLayer = layer;
+                combatLayer = ac.layers[i];
                 combatLayerExists = true;
+                combatLayerIndex = i;
                 break;
             }
         }
         
-        // Create Combat layer if it doesn't exist
         if (!combatLayerExists)
         {
             ac.AddLayer("Combat");
-            combatLayer = ac.layers[ac.layers.Length - 1];
-            // Set Combat layer weight to 0 initially (will be controlled by code when attacking)
-            combatLayer.defaultWeight = 0f;
+            combatLayerIndex = ac.layers.Length - 1;
+            combatLayer = ac.layers[combatLayerIndex];
         }
-        else
+
+        // Set Combat layer default weight to 0 (controlled by CombatController at runtime)
         {
-            // If layer exists, ensure weight is 0 (will be controlled by code when attacking)
-            combatLayer.defaultWeight = 0f;
+            var layers = ac.layers;
+            layers[combatLayerIndex].defaultWeight = 0f;
+            layers[combatLayerIndex].blendingMode = AnimatorLayerBlendingMode.Override;
+            ac.layers = layers;
+            combatLayer = ac.layers[combatLayerIndex];
         }
-        
+
         var rootSm = combatLayer.stateMachine;
         
-        // Create Idle state first in Combat layer
+        // ─── Create/find Idle state ───
         AnimatorState idleState = FindStateByName(rootSm, "Idle");
         if (idleState == null)
         {
@@ -129,111 +131,106 @@ namespace Blink.Controllers.TopDownWASD.Editor
             idleState = GetAnimatorStateFromChild(idleChild);
         }
 
-        // Create animation clips and setup combo chain: Idle -> Attack1 -> Attack2 -> Attack3 -> Attack4 -> Idle
-        AnimatorState previousState = idleState;
-        for (int i = 1; i <= 4; i++)
+        // ─── Create attack states with RPG-standard transitions ───
+        AnimatorState[] attackStates = new AnimatorState[4];
+        
+        for (int i = 0; i < 4; i++)
         {
-            AnimationClip clip = new AnimationClip();
-            clip.name = "Attack" + i;
-            // simple small forward motion on localPosition.z
-            var curve = AnimationCurve.EaseInOut(0f, 0f, 0.35f, 0.12f);
-            clip.SetCurve("", typeof(Transform), "localPosition.z", curve);
-            string clipPath = baseFolder + "/Attack" + i + ".anim";
-            // if the clip already exists in the project, don't overwrite
-            if (AssetDatabase.LoadAssetAtPath<AnimationClip>(clipPath) == null)
+            string stateName = "Attack" + (i + 1);
+            
+            // Try to load the actual combo02 animation clip from FBX
+            string fbxPath = $"Assets/Resources/Sword_sheath_AnimSet/Animation/Humanoid/Inplace/combo02_{i + 1}_inplace.fbx";
+            AnimationClip clip = LoadClipFromFBX(fbxPath, $"combo02_{i + 1}");
+
+            if (clip == null)
             {
-                AssetDatabase.CreateAsset(clip, clipPath);
-            }
-            else
-            {
-                clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(clipPath);
+                // Fallback: Create or load placeholder animation clip
+                clip = new AnimationClip();
+                clip.name = stateName;
+                var curve = AnimationCurve.EaseInOut(0f, 0f, 0.35f, 0.12f);
+                clip.SetCurve("", typeof(Transform), "localPosition.z", curve);
+                string clipPath = baseFolder + "/" + stateName + ".anim";
+                if (AssetDatabase.LoadAssetAtPath<AnimationClip>(clipPath) == null)
+                    AssetDatabase.CreateAsset(clip, clipPath);
+                else
+                    clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(clipPath);
             }
 
-            EnsureHitAnimationEvent(clip, i - 1);
+            EnsureHitAnimationEvent(clip, i);
 
-            // add state if not already present
-            AnimatorState attackState = FindStateByName(rootSm, "Attack" + i);
+            // Create state if not present
+            AnimatorState attackState = FindStateByName(rootSm, stateName);
             if (attackState == null)
             {
-                var child = rootSm.AddState("Attack" + i);
+                var child = rootSm.AddState(stateName);
                 attackState = GetAnimatorStateFromChild(child);
             }
             if (attackState != null)
                 attackState.motion = clip;
 
-            // Transition FROM previous state (or Idle) TO this attack state
-            if (previousState != null && attackState != null)
+            attackStates[i] = attackState;
+        }
+
+        // ─── CLEAR all old transitions to rebuild them cleanly ───
+        ClearTransitions(idleState);
+        for (int i = 0; i < 4; i++)
+        {
+            if (attackStates[i] != null)
+                ClearTransitions(attackStates[i]);
+        }
+
+        // ─── BUILD RPG-STANDARD TRANSITIONS ───
+        // 
+        // Pattern for RPG combo:
+        //   Idle ──(Attack1 trigger)──> Attack1
+        //   Attack1 ──(Attack2 trigger, no exit time)──> Attack2   (combo window)
+        //   Attack1 ──(exit time 0.85, duration 0.15)──> Idle      (no combo → return)
+        //   ... etc
+        //   Attack4 ──(exit time 0.85, duration 0.15)──> Idle      (last hit always returns)
+        //
+        // Key design decisions:
+        //   - Combo transitions: hasExitTime=false, transitionDuration=0.08 (snappy blend)
+        //   - Return to Idle:    hasExitTime=true,  exitTime=0.85, transitionDuration=0.15
+
+        // Idle → Attack1
+        {
+            var t = idleState.AddTransition(attackStates[0]);
+            t.AddCondition(AnimatorConditionMode.If, 0, "Attack1");
+            t.hasExitTime = false;
+            t.duration = 0.05f;           // very fast entry into first attack
+            t.offset = 0f;
+            t.interruptionSource = TransitionInterruptionSource.None;
+            t.canTransitionToSelf = false;
+        }
+
+        for (int i = 0; i < 4; i++)
+        {
+            var state = attackStates[i];
+            if (state == null) continue;
+
+            // Attack[i] → Attack[i+1] (combo continuation)
+            if (i < 3 && attackStates[i + 1] != null)
             {
-                bool hasTransition = false;
-                foreach (var trans in previousState.transitions)
-                {
-                    if (trans.destinationState == attackState && TransitionHasCondition(trans, "Attack" + i))
-                    {
-                        hasTransition = true;
-                        break;
-                    }
-                }
-                if (!hasTransition)
-                {
-                    var transToAttack = previousState.AddTransition(attackState);
-                    transToAttack.AddCondition(AnimatorConditionMode.If, 0, "Attack" + i);
-                    transToAttack.hasExitTime = false;
-                    transToAttack.duration = 0f;
-                }
+                var comboTrans = state.AddTransition(attackStates[i + 1]);
+                comboTrans.AddCondition(AnimatorConditionMode.If, 0, "Attack" + (i + 2));
+                comboTrans.hasExitTime = false;
+                comboTrans.duration = 0.08f;            // snappy combo blend
+                comboTrans.offset = 0f;
+                comboTrans.interruptionSource = TransitionInterruptionSource.Source;
+                comboTrans.canTransitionToSelf = false;
             }
 
-            // Transition FROM this attack TO Idle (if attack combo ends)
-            if (attackState != null && idleState != null)
+            // Attack[i] → Idle (return when combo ends / no input)
             {
-                bool hasIdleTransition = false;
-                foreach (var trans in attackState.transitions)
-                {
-                    if (trans.destinationState == idleState)
-                    {
-                        hasIdleTransition = true;
-                        break;
-                    }
-                }
-                if (!hasIdleTransition)
-                {
-                    var transToIdle = attackState.AddTransition(idleState);
-                    transToIdle.hasExitTime = true;
-                    transToIdle.exitTime = 0.9f;
-                    transToIdle.duration = 0.1f;
-                }
+                var returnTrans = state.AddTransition(idleState);
+                returnTrans.hasExitTime = true;
+                returnTrans.exitTime = 0.85f;           // wait until 85% of animation
+                returnTrans.duration = 0.15f;            // smooth blend back to idle
+                returnTrans.offset = 0f;
+                returnTrans.interruptionSource = TransitionInterruptionSource.Source;
+                returnTrans.canTransitionToSelf = false;
+                // No conditions → this fires purely on exit time
             }
-
-            // If not the last attack, create transition to next attack
-            if (i < 4 && attackState != null)
-            {
-                AnimatorState nextAttackState = FindStateByName(rootSm, "Attack" + (i + 1));
-                if (nextAttackState == null)
-                {
-                    var nextChild = rootSm.AddState("Attack" + (i + 1));
-                    nextAttackState = GetAnimatorStateFromChild(nextChild);
-                }
-                if (nextAttackState != null)
-                {
-                    bool hasComboTransition = false;
-                    foreach (var trans in attackState.transitions)
-                    {
-                        if (trans.destinationState == nextAttackState && TransitionHasCondition(trans, "Attack" + (i + 1)))
-                        {
-                            hasComboTransition = true;
-                            break;
-                        }
-                    }
-                    if (!hasComboTransition)
-                    {
-                        var comboTrans = attackState.AddTransition(nextAttackState);
-                        comboTrans.AddCondition(AnimatorConditionMode.If, 0, "Attack" + (i + 1));
-                        comboTrans.hasExitTime = false;
-                        comboTrans.duration = 0f;
-                    }
-                }
-            }
-
-            previousState = attackState;
         }
 
         AssetDatabase.SaveAssets();
@@ -283,7 +280,6 @@ namespace Blink.Controllers.TopDownWASD.Editor
             var selectedAnimator = selected.GetComponent<Animator>();
             if (selectedAnimator != null)
             {
-                // Force reimport and reload the controller asset
                 AssetDatabase.ImportAsset(usedControllerPath);
                 var controllerAsset = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(usedControllerPath);
                 if (controllerAsset != null)
@@ -311,19 +307,35 @@ namespace Blink.Controllers.TopDownWASD.Editor
             }
         }
 
-        EditorUtility.DisplayDialog("Combat Setup", "Created Enemy prefab and Animator Controller in:\n" + baseFolder, "OK");
+        EditorUtility.DisplayDialog("Combat Setup", 
+            "Combat system configured!\n\n" +
+            "Combat layer transitions:\n" +
+            "  Idle -> Attack1 (trigger, 0.05s blend)\n" +
+            "  Attack1 -> Attack2 -> Attack3 -> Attack4 (trigger, 0.08s blend)\n" +
+            "  Each Attack -> Idle (exit time 85%, 0.15s blend)\n\n" +
+            "Prefabs in: " + baseFolder, "OK");
     }
 
     // Helper method to change animation clips for attack states
     [MenuItem("BLINK/Combat/Update Attack Animations")]
     public static void UpdateAttackAnimations()
     {
-        string controllerPath = "Assets/Blink/Controllers/TopDownWASD/Character/TopDownWASDAnimator.controller";
-        UnityEditor.Animations.AnimatorController ac = AssetDatabase.LoadAssetAtPath<UnityEditor.Animations.AnimatorController>(controllerPath);
-        
+        // Try multiple paths
+        string[] possiblePaths = {
+            "Assets/Resources/Blink/Controllers/TopDownWASD/Character/TopDownWASDAnimator.controller",
+            "Assets/Blink/Controllers/TopDownWASD/Character/TopDownWASDAnimator.controller"
+        };
+
+        EditorAnimatorController ac = null;
+        foreach (var path in possiblePaths)
+        {
+            ac = AssetDatabase.LoadAssetAtPath<EditorAnimatorController>(path);
+            if (ac != null) break;
+        }
+
         if (ac == null)
         {
-            EditorUtility.DisplayDialog("Error", "Cannot find TopDownWASDAnimator.controller at:\n" + controllerPath, "OK");
+            EditorUtility.DisplayDialog("Error", "Cannot find TopDownWASDAnimator.controller", "OK");
             return;
         }
 
@@ -367,6 +379,43 @@ namespace Blink.Controllers.TopDownWASD.Editor
         EditorUtility.DisplayDialog("Success", "Attack animations updated!", "OK");
     }
 
+    // ─────────── HELPER METHODS ───────────
+
+    /// <summary>Recursively create folder path if it doesn't exist.</summary>
+    static void EnsureFolderExists(string path)
+    {
+        if (AssetDatabase.IsValidFolder(path)) return;
+
+        string[] parts = path.Split('/');
+        string current = parts[0]; // "Assets"
+        for (int i = 1; i < parts.Length; i++)
+        {
+            string next = current + "/" + parts[i];
+            if (!AssetDatabase.IsValidFolder(next))
+            {
+                AssetDatabase.CreateFolder(current, parts[i]);
+            }
+            current = next;
+        }
+    }
+
+    static bool HasParameter(EditorAnimatorController ac, string paramName)
+    {
+        foreach (var p in ac.parameters)
+            if (p.name == paramName) return true;
+        return false;
+    }
+
+    static void ClearTransitions(AnimatorState state)
+    {
+        if (state == null) return;
+        var transitions = state.transitions;
+        for (int i = transitions.Length - 1; i >= 0; i--)
+        {
+            state.RemoveTransition(transitions[i]);
+        }
+    }
+
     static void AddTagIfMissing(string tag)
     {
         try
@@ -405,7 +454,6 @@ namespace Blink.Controllers.TopDownWASD.Editor
         }
     }
 
-    // helper: find AnimatorState by name in a state machine, compatible with different Unity versions
     static AnimatorState FindStateByName(AnimatorStateMachine sm, string name)
     {
         System.Array arr = sm.states as System.Array;
@@ -423,57 +471,134 @@ namespace Blink.Controllers.TopDownWASD.Editor
     {
         if (child == null) return null;
         var type = child.GetType();
-        // try property 'state' (ChildAnimatorState)
         var prop = type.GetProperty("state");
         if (prop != null)
         {
             var val = prop.GetValue(child);
             return val as AnimatorState;
         }
-        // maybe the element itself is AnimatorState
         if (child is AnimatorState st) return st;
         return null;
-    }
-
-    static bool TransitionHasCondition(AnimatorStateTransition trans, string parameterName)
-    {
-        if (trans == null) return false;
-        foreach (var condition in trans.conditions)
-        {
-            if (condition.parameter == parameterName)
-                return true;
-        }
-        return false;
     }
 
     static void EnsureHitAnimationEvent(AnimationClip clip, int attackIndex)
     {
         if (clip == null) return;
-        var events = AnimationUtility.GetAnimationEvents(clip);
-        bool exists = false;
-        for (int i = 0; i < events.Length; i++)
+
+        // Check if the clip is read-only (e.g. from an imported FBX)
+        string path = AssetDatabase.GetAssetPath(clip);
+        if (!string.IsNullOrEmpty(path) && path.ToLower().EndsWith(".fbx"))
         {
-            if (events[i].functionName == "OnAttackHit")
+            ModelImporter importer = AssetImporter.GetAtPath(path) as ModelImporter;
+            if (importer != null)
             {
-                exists = true;
-                break;
+                var clipAnimations = importer.clipAnimations;
+                if (clipAnimations == null || clipAnimations.Length == 0)
+                {
+                    clipAnimations = importer.defaultClipAnimations;
+                }
+
+                if (clipAnimations != null && clipAnimations.Length > 0)
+                {
+                    bool modified = false;
+                    for (int i = 0; i < clipAnimations.Length; i++)
+                    {
+                        // Match either clip name or take name
+                        if (clipAnimations[i].name == clip.name || clipAnimations[i].takeName == clip.name)
+                        {
+                            var events = clipAnimations[i].events;
+                            bool exists = false;
+                            if (events != null)
+                            {
+                                foreach (var ev in events)
+                                {
+                                    if (ev.functionName == "OnAttackHit")
+                                    {
+                                        exists = true;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            if (!exists)
+                            {
+                                float normalizedHitTime = 0.35f + (attackIndex * 0.05f);
+                                float eventTime = normalizedHitTime * clip.length; // time in seconds
+                                var newEv = new AnimationEvent
+                                {
+                                    functionName = "OnAttackHit",
+                                    intParameter = attackIndex,
+                                    time = eventTime
+                                };
+
+                                var evList = new System.Collections.Generic.List<AnimationEvent>(events ?? new AnimationEvent[0]);
+                                evList.Add(newEv);
+                                clipAnimations[i].events = evList.ToArray();
+                                modified = true;
+                            }
+                        }
+                    }
+
+                    if (modified)
+                    {
+                        importer.clipAnimations = clipAnimations;
+                        importer.SaveAndReimport();
+                    }
+                }
             }
         }
-        if (exists) return;
-
-        float eventTime = Mathf.Clamp(0.18f + (attackIndex * 0.03f), 0.05f, Mathf.Max(0.05f, clip.length - 0.01f));
-        var evt = new AnimationEvent
+        else
         {
-            functionName = "OnAttackHit",
-            intParameter = attackIndex,
-            time = eventTime
-        };
+            // Standard editable clip (.anim)
+            var events = AnimationUtility.GetAnimationEvents(clip);
+            bool exists = false;
+            for (int i = 0; i < events.Length; i++)
+            {
+                if (events[i].functionName == "OnAttackHit")
+                {
+                    exists = true;
+                    break;
+                }
+            }
+            if (exists) return;
 
-        var newEvents = new AnimationEvent[events.Length + 1];
-        for (int i = 0; i < events.Length; i++) newEvents[i] = events[i];
-        newEvents[newEvents.Length - 1] = evt;
-        AnimationUtility.SetAnimationEvents(clip, newEvents);
-        EditorUtility.SetDirty(clip);
+            float normalizedHitTime = 0.35f + (attackIndex * 0.05f);
+            float eventTime = Mathf.Clamp(clip.length * normalizedHitTime, 0.05f, Mathf.Max(0.05f, clip.length - 0.01f));
+            var evt = new AnimationEvent
+            {
+                functionName = "OnAttackHit",
+                intParameter = attackIndex,
+                time = eventTime
+            };
+
+            var newEvents = new AnimationEvent[events.Length + 1];
+            for (int i = 0; i < events.Length; i++) newEvents[i] = events[i];
+            newEvents[newEvents.Length - 1] = evt;
+            AnimationUtility.SetAnimationEvents(clip, newEvents);
+            EditorUtility.SetDirty(clip);
+        }
+    }
+
+    public static AnimationClip LoadClipFromFBX(string fbxPath, string clipName)
+    {
+        var assets = AssetDatabase.LoadAllAssetsAtPath(fbxPath);
+        if (assets == null) return null;
+        foreach (var asset in assets)
+        {
+            if (asset is AnimationClip clip && clip.name == clipName)
+            {
+                return clip;
+            }
+        }
+        // Fallback: return the first animation clip that is not a preview clip
+        foreach (var asset in assets)
+        {
+            if (asset is AnimationClip clip && !clip.name.Contains("__preview__"))
+            {
+                return clip;
+            }
+        }
+        return null;
     }
 }
 }
