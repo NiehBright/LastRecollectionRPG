@@ -91,15 +91,32 @@ namespace Blink.Controllers.TopDownWASD.Editor
         }
 
         // Create a new layer for combat attacks (separate from Locomotion)
-        if (ac.layers.Length <= 1)
+        AnimatorControllerLayer combatLayer = null;
+        bool combatLayerExists = false;
+        
+        // Check if Combat layer already exists
+        foreach (var layer in ac.layers)
         {
-            ac.AddLayer("Combat");
+            if (layer.name == "Combat")
+            {
+                combatLayer = layer;
+                combatLayerExists = true;
+                break;
+            }
         }
         
-        AnimatorControllerLayer combatLayer = ac.layers[ac.layers.Length - 1];
-        if (combatLayer.name != "Combat")
+        // Create Combat layer if it doesn't exist
+        if (!combatLayerExists)
         {
-            combatLayer.name = "Combat";
+            ac.AddLayer("Combat");
+            combatLayer = ac.layers[ac.layers.Length - 1];
+            // Set Combat layer weight to 0 initially (will be controlled by code when attacking)
+            combatLayer.defaultWeight = 0f;
+        }
+        else
+        {
+            // If layer exists, ensure weight is 0 (will be controlled by code when attacking)
+            combatLayer.defaultWeight = 0f;
         }
         
         var rootSm = combatLayer.stateMachine;
@@ -254,6 +271,11 @@ namespace Blink.Controllers.TopDownWASD.Editor
         }
         Object.DestroyImmediate(hitFxGO);
 
+        // Save the animator controller to ensure changes are persisted
+        EditorUtility.SetDirty(ac);
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+
         // If the user has a GameObject selected in the Editor, try to assign the created controller and popup prefab
         var selected = Selection.activeGameObject;
         if (selected != null)
@@ -261,7 +283,8 @@ namespace Blink.Controllers.TopDownWASD.Editor
             var selectedAnimator = selected.GetComponent<Animator>();
             if (selectedAnimator != null)
             {
-                // assign the controller asset we created/modified
+                // Force reimport and reload the controller asset
+                AssetDatabase.ImportAsset(usedControllerPath);
                 var controllerAsset = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(usedControllerPath);
                 if (controllerAsset != null)
                 {
@@ -289,6 +312,59 @@ namespace Blink.Controllers.TopDownWASD.Editor
         }
 
         EditorUtility.DisplayDialog("Combat Setup", "Created Enemy prefab and Animator Controller in:\n" + baseFolder, "OK");
+    }
+
+    // Helper method to change animation clips for attack states
+    [MenuItem("BLINK/Combat/Update Attack Animations")]
+    public static void UpdateAttackAnimations()
+    {
+        string controllerPath = "Assets/Blink/Controllers/TopDownWASD/Character/TopDownWASDAnimator.controller";
+        UnityEditor.Animations.AnimatorController ac = AssetDatabase.LoadAssetAtPath<UnityEditor.Animations.AnimatorController>(controllerPath);
+        
+        if (ac == null)
+        {
+            EditorUtility.DisplayDialog("Error", "Cannot find TopDownWASDAnimator.controller at:\n" + controllerPath, "OK");
+            return;
+        }
+
+        // Find Combat layer
+        AnimatorControllerLayer combatLayer = null;
+        foreach (var layer in ac.layers)
+        {
+            if (layer.name == "Combat")
+            {
+                combatLayer = layer;
+                break;
+            }
+        }
+
+        if (combatLayer == null)
+        {
+            EditorUtility.DisplayDialog("Error", "Combat layer not found in animator controller", "OK");
+            return;
+        }
+
+        var rootSm = combatLayer.stateMachine;
+
+        // Update attack states with any new animation clips
+        for (int i = 1; i <= 4; i++)
+        {
+            AnimatorState attackState = FindStateByName(rootSm, "Attack" + i);
+            if (attackState != null)
+            {
+                AnimationClip clip = attackState.motion as AnimationClip;
+                if (clip != null)
+                {
+                    EnsureHitAnimationEvent(clip, i - 1);
+                    EditorUtility.SetDirty(clip);
+                }
+            }
+        }
+
+        EditorUtility.SetDirty(ac);
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+        EditorUtility.DisplayDialog("Success", "Attack animations updated!", "OK");
     }
 
     static void AddTagIfMissing(string tag)

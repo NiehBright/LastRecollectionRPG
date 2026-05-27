@@ -1,8 +1,6 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.Playables;
-using UnityEngine.Animations;
 
 // Combat system for Top-down RPG
 // - Left click cycles through a 4-hit combo (Attack1..Attack4)
@@ -26,9 +24,14 @@ namespace BLINK.Controller
     public LayerMask enemyLayer = ~0;
     public float[] baseDamages = new float[] { 40f, 55f, 75f, 110f };
     public float[] hitTimes = new float[] { 0.18f, 0.22f, 0.26f, 0.32f }; // when the hit actually applies after animation start
+    public float[] animationDurations = new float[] { 0.6f, 0.6f, 0.6f, 0.6f }; // duration of each attack animation (SET THIS CORRECTLY!)
     public float comboInputTimeout = 0.8f; // time allowed to input next combo
     [Tooltip("Use Animation Events (OnAttackHit with int parameter). If event is missing, a fallback hit-time is used.")]
     public bool useAnimationEvents = true;
+
+    [Header("Movement During Attack")]
+    public float attackMoveDistance = 0.3f; // how far to move forward during attack
+    public float[] attackMoveDurations = new float[] { 0.35f, 0.35f, 0.35f, 0.35f }; // duration to move forward for each attack
 
     [Header("Direct Attack Clips (assign these to play attacks)")]
     [Tooltip("Assign 4 attack animation clips here. If empty, the script will fallback to Animator triggers.")]
@@ -48,11 +51,8 @@ namespace BLINK.Controller
     float _lastHitTime = -10f;
     int _activeAttackIndex = -1;
     bool _activeAttackHitConsumed;
+    int _queuedComboIndex = -1; // for better input queue
 
-    // PlayableGraph for direct clip playback (overrides animator while playing)
-    PlayableGraph _playableGraph;
-    AnimationPlayableOutput _animOutput;
-    Playable _currentClipPlayable = Playable.Null;
 
     void Awake()
     {
@@ -67,32 +67,12 @@ namespace BLINK.Controller
 
     void OnEnable()
     {
-        // prepare playable graph for direct clip playback
-        if (animator != null)
-        {
-            _playableGraph = PlayableGraph.Create(name + "_CombatGraph");
-            _animOutput = AnimationPlayableOutput.Create(_playableGraph, "CombatOutput", animator);
-            // initially no source
-            _animOutput.SetSourcePlayable(Playable.Null);
-        }
+        // No PlayableGraph needed anymore - using animator layers instead
     }
 
     void OnDisable()
     {
-        try
-        {
-            if (_currentClipPlayable.IsValid())
-            {
-                _currentClipPlayable.Destroy();
-                _currentClipPlayable = Playable.Null;
-            }
-        }
-        catch { }
-
-        if (_playableGraph.IsValid())
-        {
-            _playableGraph.Destroy();
-        }
+        // No cleanup needed for animator-based playback
     }
 
     void Update()
@@ -116,6 +96,7 @@ namespace BLINK.Controller
         if (Time.time - _lastInputTime > comboInputTimeout)
         {
             _comboIndex = 0;
+            _queuedComboIndex = -1;
         }
 
         _lastInputTime = Time.time;
@@ -123,67 +104,59 @@ namespace BLINK.Controller
         // queue or start attack
         if (_currentAttackCoroutine == null)
         {
+            // Start first attack immediately
             _currentAttackCoroutine = StartCoroutine(PerformAttack(_comboIndex));
+            _queuedComboIndex = -1;
         }
         else
         {
-            // allow queuing next attack: increment index (max 3)
-            _comboIndex = Mathf.Clamp(_comboIndex + 1, 0, 3);
+            // Queue next attack - store it instead of immediately incrementing
+            _queuedComboIndex = Mathf.Clamp(_comboIndex + 1, 0, 3);
         }
     }
 
     IEnumerator PerformAttack(int index)
     {
-        // try to play direct clip first (if assigned), otherwise fall back to animator trigger
+        // Trigger attack animation via animator (on Combat layer)
         string trig = "Attack" + (index + 1);
-        bool playedClip = false;
-        if (attackClips != null && index >= 0 && index < attackClips.Length && attackClips[index] != null && animator != null)
+        
+        if (animator != null && AnimatorHasParameter(animator, trig))
         {
-            var clip = attackClips[index];
-            try
+            // Enable Combat layer during attack
+            int combatLayerIndex = animator.GetLayerIndex("Combat");
+            if (combatLayerIndex >= 0)
             {
-                if (!_playableGraph.IsValid())
-                {
-                    _playableGraph = PlayableGraph.Create(name + "_CombatGraph");
-                    _animOutput = AnimationPlayableOutput.Create(_playableGraph, "CombatOutput", animator);
-                }
-
-                // destroy previous playable if any
-                if (_currentClipPlayable.IsValid())
-                {
-                    _currentClipPlayable.Destroy();
-                    _currentClipPlayable = Playable.Null;
-                }
-
-                var clipPlayable = AnimationClipPlayable.Create(_playableGraph, clip);
-                clipPlayable.SetApplyFootIK(false);
-                clipPlayable.SetApplyPlayableIK(false);
-                _currentClipPlayable = (Playable)clipPlayable;
-                _animOutput.SetSourcePlayable(_currentClipPlayable);
-                _playableGraph.Play();
-                playedClip = true;
+                animator.SetLayerWeight(combatLayerIndex, 1f);
             }
-            catch (System.Exception ex)
-            {
-                Debug.LogWarning("Failed to play clip directly: " + ex.Message);
-                playedClip = false;
-            }
+            
+            animator.SetTrigger(trig);
         }
-
-        if (!playedClip && animator != null && AnimatorHasParameter(animator, trig)) animator.SetTrigger(trig);
 
         _activeAttackIndex = index;
         _activeAttackHitConsumed = false;
 
-        // wait for hit time and apply fallback hit if animation event is missing
+        // Move forward during attack
+        float moveDuration = (index >= 0 && index < attackMoveDurations.Length) ? attackMoveDurations[index] : 0.35f;
+        float moveDistance = attackMoveDistance;
+        Vector3 startPosition = transform.position;
+        Vector3 targetPosition = startPosition + transform.forward * moveDistance;
+        float elapsedMoveTime = 0f;
+
+        // Get the animation duration
+        float animDuration = (index >= 0 && index < animationDurations.Length) ? animationDurations[index] : 0.6f;
+        float animStartTime = Time.time;
+
+        // Wait for hit time and apply fallback hit if animation event is missing
         float wait = (index >= 0 && index < hitTimes.Length) ? hitTimes[index] : 0.25f;
         yield return new WaitForSeconds(wait);
+        
         if (!useAnimationEvents && !_activeAttackHitConsumed)
         {
             ApplyHit(index);
         }
         else if (useAnimationEvents)
         {
+            // Wait a bit more for animation event
             yield return new WaitForSeconds(0.2f);
             if (!_activeAttackHitConsumed)
             {
@@ -191,37 +164,51 @@ namespace BLINK.Controller
             }
         }
 
-        // after attack, allow next combo input within timeout
-        // wait a short time to allow player to queue next input
-        yield return new WaitForSeconds(0.12f);
-
-        // advance combo index if player pressed input in time
-        if (Time.time - _lastInputTime <= comboInputTimeout && _comboIndex > index)
+        // Continue moving and wait for animation to FULLY complete
+        while (Time.time - animStartTime < animDuration)
         {
-            // next queued attack
-            _currentAttackCoroutine = StartCoroutine(PerformAttack(_comboIndex));
-            // do not clear _currentAttackCoroutine here (it will be set by new coroutine)
+            elapsedMoveTime += Time.deltaTime;
+            
+            // Move if still in move duration
+            if (elapsedMoveTime < moveDuration)
+            {
+                float t = Mathf.Clamp01(elapsedMoveTime / moveDuration);
+                CharacterController cc = GetComponent<CharacterController>();
+                if (cc != null)
+                {
+                    Vector3 moveDir = (targetPosition - transform.position).normalized;
+                    cc.Move(moveDir * moveDistance * Time.deltaTime / moveDuration);
+                }
+            }
+            
+            yield return null;
+        }
+
+        // Animation is now fully complete - check for queued combo attack
+        if (_queuedComboIndex >= 0 && Time.time - _lastInputTime <= comboInputTimeout)
+        {
+            // Start queued attack
+            int nextIndex = _queuedComboIndex;
+            _comboIndex = nextIndex;
+            _queuedComboIndex = -1;
+            _currentAttackCoroutine = StartCoroutine(PerformAttack(nextIndex));
             yield break;
         }
 
-        // reset combo
+        // reset combo and disable Combat layer
         _comboIndex = 0;
+        _queuedComboIndex = -1;
         _currentAttackCoroutine = null;
         _activeAttackIndex = -1;
 
-        // stop any playing clip and clear output
-        if (_animOutput.IsOutputValid())
+        // Disable Combat layer and return to Locomotion
+        if (animator != null)
         {
-            try
+            int combatLayerIndex = animator.GetLayerIndex("Combat");
+            if (combatLayerIndex >= 0)
             {
-                if (_currentClipPlayable.IsValid())
-                {
-                    _currentClipPlayable.Destroy();
-                    _currentClipPlayable = Playable.Null;
-                }
-                _animOutput.SetSourcePlayable(Playable.Null);
+                animator.SetLayerWeight(combatLayerIndex, 0f);
             }
-            catch { }
         }
     }
 
