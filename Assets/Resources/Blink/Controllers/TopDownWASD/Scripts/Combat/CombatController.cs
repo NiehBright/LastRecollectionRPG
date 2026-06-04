@@ -3,8 +3,8 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 // Combat system for Top-down RPG
-// - Left click cycles through a 4-hit combo (Attack1..Attack4)
-// - Damage scales with a hit-streak; streak decays after a timeout
+// - Input System: nhấn để tạo combo 4 đòn (Attack1..Attack4) trong khoảng timeout
+// - Mỗi đòn gây cùng lượng sát thương
 // - Triggers animator parameters: "Attack1","Attack2","Attack3","Attack4"
 // Attach to the player (same object that has the Animator). Does not modify existing code.
 namespace BLINK.Controller
@@ -18,17 +18,24 @@ namespace BLINK.Controller
         [Tooltip("Optional: prefab for hit effect on impact.")]
         public GameObject hitEffectPrefab;
 
+        [Header("Input System")]
+        [Tooltip("Input Action cho tấn công (ví dụ: Attack trong Input System).")]
+        public InputActionReference attackAction;
+
         [Header("Attack Settings")]
         public float attackRange = 1.6f;
         public float attackRadius = 0.8f;
         public LayerMask enemyLayer = ~0;
-        public float[] baseDamages = new float[] { 40f, 55f, 75f, 110f };
+        [Tooltip("Tất cả đòn đánh dùng chung sát thương này.")]
+        public float baseDamage = 60f;
         [Tooltip("Normalized time (0-1) within the animation clip when the hit applies.")]
         public float[] hitNormalizedTimes = new float[] { 0.35f, 0.40f, 0.45f, 0.50f };
         [Tooltip("Use Animation Events (OnAttackHit with int parameter). If event is missing, a fallback hit-time is used.")]
         public bool useAnimationEvents = true;
 
         [Header("Combo Timing")]
+        [Tooltip("Thời gian tối đa giữa các lần bấm để nối combo (giây).")]
+        public float comboInputTimeout = 4f;
         [Tooltip("Earliest normalized time in the current attack animation where the next combo input is accepted.")]
         public float[] comboWindowStarts = new float[] { 0.45f, 0.45f, 0.45f, 0.45f };
         [Tooltip("Latest normalized time. After this, combo resets to Attack1.")]
@@ -48,21 +55,15 @@ namespace BLINK.Controller
             new Keyframe(0.7f, 0f, -2f, 0f)
         );
 
-        [Header("Hit Streak / Scaling")]
-        public int hitStreak = 0;
-        public float streakDecayTime = 5f; // seconds without hitting to reset streak
-        // thresholds: at >=10 and >=20 hits we increase damage
-        public int threshold1 = 10;
-        public int threshold2 = 20;
-
         // --- State ---
-        int _comboIndex = 0; // 0..3
+        int _comboIndex; // 0..3
         bool _isAttacking;
         bool _comboQueued;
         bool _activeAttackHitConsumed;
         int _activeAttackIndex = -1;
-        float _lastHitTime = -10f;
+        float _lastAttackInputTime = -10f;
         Coroutine _attackCoroutine;
+        bool _attackActionEnabledByUs;
 
         // --- Cached references ---
         CharacterController _cc;
@@ -88,34 +89,130 @@ namespace BLINK.Controller
                 if (_combatLayerIndex < 0 && animator.layerCount <= 1)
                     Debug.LogWarning("[CombatController] Animator does not have a 'Combat' layer. Run 'BLINK → Combat → Setup Combat Assets' first.");
             }
+
+            // Try to find InputActionReference if not assigned
+            if (attackAction == null)
+            {
+                // Try to find from PlayerInput component
+                var playerInput = GetComponent<PlayerInput>();
+                if (playerInput != null)
+                {
+                    var attackInputAction = playerInput.actions.FindAction("Attack");
+                    if (attackInputAction != null)
+                    {
+                        Debug.Log("[CombatController] Auto-found Attack action from PlayerInput");
+                        // Note: We'll subscribe manually in OnEnable
+                    }
+                }
+                else
+                {
+                    Debug.LogWarning("[CombatController] attackAction not assigned and no PlayerInput found. Combat will not work!");
+                }
+            }
         }
 
-        void Update()
+        void OnEnable()
         {
-            // Decay hit streak
-            if (hitStreak > 0 && Time.time - _lastHitTime > streakDecayTime)
-                hitStreak = 0;
+            InputAction actionToUse = null;
 
-            // Read left mouse button
-            if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
-                OnAttackInput();
+            // Priority 1: InputActionReference (manually assigned in inspector)
+            if (attackAction != null)
+            {
+                actionToUse = attackAction.action;
+                Debug.Log("[CombatController] Using InputActionReference");
+            }
+            // Priority 2: InputManager static helper
+            else if (InputManager.GetAction("Attack") != null)
+            {
+                actionToUse = InputManager.GetAction("Attack");
+                Debug.Log("[CombatController] Using InputManager.GetAction fallback");
+            }
+            // Priority 3: PlayerInput component
+            else
+            {
+                var playerInput = GetComponent<PlayerInput>();
+                if (playerInput != null)
+                {
+                    actionToUse = playerInput.actions.FindAction("Attack");
+                    Debug.Log("[CombatController] Using PlayerInput component fallback");
+                }
+            }
+
+            if (actionToUse != null)
+            {
+                if (!actionToUse.enabled)
+                {
+                    actionToUse.Enable();
+                    _attackActionEnabledByUs = true;
+                }
+                actionToUse.performed += OnAttackPerformed;
+                Debug.Log("[CombatController] Attack action subscribed successfully");
+            }
+            else
+            {
+                Debug.LogError("[CombatController] Failed to find Attack action! Combat will not work.");
+            }
+        }
+
+        void OnDisable()
+        {
+            InputAction actionToUse = null;
+
+            if (attackAction != null)
+                actionToUse = attackAction.action;
+            else if (InputManager.GetAction("Attack") != null)
+                actionToUse = InputManager.GetAction("Attack");
+            else
+            {
+                var playerInput = GetComponent<PlayerInput>();
+                if (playerInput != null)
+                    actionToUse = playerInput.actions.FindAction("Attack");
+            }
+
+            if (actionToUse != null)
+            {
+                actionToUse.performed -= OnAttackPerformed;
+                if (_attackActionEnabledByUs)
+                {
+                    actionToUse.Disable();
+                    _attackActionEnabledByUs = false;
+                }
+            }
+        }
+
+        void OnAttackPerformed(InputAction.CallbackContext ctx)
+        {
+            Debug.Log("[CombatController] OnAttackPerformed called from Input System");
+            OnAttackInput();
         }
 
         // ─────────── INPUT ───────────
         void OnAttackInput()
         {
-            if (!_isAttacking)
+            Debug.Log($"[CombatController] OnAttackInput called! IsAttacking={_isAttacking}, ComboIndex={_comboIndex}");
+            
+            float now = Time.time;
+            bool comboExpired = now - _lastAttackInputTime > comboInputTimeout;
+            _lastAttackInputTime = now;
+
+            if (!_isAttacking || comboExpired)
             {
+                if (_isAttacking && comboExpired)
+                {
+                    Debug.Log("[CombatController] Combo expired, cancelling");
+                    CancelCombo();
+                }
+
                 // Start fresh combo from Attack1
                 _comboIndex = 0;
                 _comboQueued = false;
+                Debug.Log("[CombatController] Starting new combo from Attack1");
                 StartAttack(_comboIndex);
             }
             else
             {
-                // We're mid-attack: check if we're inside the combo window
-                // The actual queueing is time-checked in the coroutine,
-                // but we set the flag here so we don't miss the input
+                // We're mid-attack: queue the next hit (validated inside the combo window)
+                Debug.Log($"[CombatController] Queuing next combo input (current={_comboIndex})");
                 _comboQueued = true;
             }
         }
@@ -315,8 +412,7 @@ namespace BLINK.Controller
                 if (c == null || !c.CompareTag("Enemy")) continue;
 
                 var enemy = c.GetComponent<EnemyDummy>();
-                float baseDamage = (index >= 0 && index < baseDamages.Length) ? baseDamages[index] : 10f;
-                float damage = baseDamage * GetStreakMultiplier();
+                float damage = baseDamage;
 
                 if (enemy != null)
                     enemy.TakeDamage(damage);
@@ -329,18 +425,7 @@ namespace BLINK.Controller
 
                 if (hitEffectPrefab != null)
                     Instantiate(hitEffectPrefab, c.bounds.center + Vector3.up * 0.2f, Quaternion.identity);
-
-                hitStreak++;
-                _lastHitTime = Time.time;
             }
-        }
-
-        // ─────────── STREAK ───────────
-        float GetStreakMultiplier()
-        {
-            if (hitStreak >= threshold2) return 1.5f; // +50% at 20 hits
-            if (hitStreak >= threshold1) return 1.2f; // +20% at 10 hits
-            return 1f;
         }
 
         // ─────────── PUBLIC API ───────────

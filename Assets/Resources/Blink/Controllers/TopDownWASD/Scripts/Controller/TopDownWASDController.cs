@@ -473,9 +473,20 @@ namespace BLINK.Controller
 
         private Vector3 GetPoint()
         {
+            if (Mouse.current == null)
+                return transform.position;
+
+            Vector2 mousePos = Mouse.current.position.ReadValue();
+            
+            // Validate mouse position (check for NaN)
+            if (float.IsNaN(mousePos.x) || float.IsNaN(mousePos.y) || 
+                mousePos.x < 0 || mousePos.y < 0 || 
+                mousePos.x > Screen.width || mousePos.y > Screen.height)
+                return transform.position;
+
             var playerPlane = new Plane(Vector3.up, transform.position);
-            var ray = playerCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
-            return playerPlane.Raycast(ray, out var hitDist) ? ray.GetPoint(hitDist) : Vector3.zero;
+            var ray = playerCamera.ScreenPointToRay(mousePos);
+            return playerPlane.Raycast(ray, out var hitDist) ? ray.GetPoint(hitDist) : transform.position;
         }
 
         void OnAnimatorIK()
