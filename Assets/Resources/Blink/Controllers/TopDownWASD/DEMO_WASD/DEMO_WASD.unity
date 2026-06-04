@@ -589,6 +589,50 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 531224674}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!1 &546715575
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 546715577}
+  - component: {fileID: 546715576}
+  m_Layer: 0
+  m_Name: '[InputManager]'
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &546715576
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 546715575}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0e4736a1b893421bb032d034f97c6ca7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BLINK.Controller.InputManager
+--- !u!4 &546715577
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 546715575}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &560417683
 GameObject:
   m_ObjectHideFlags: 0
@@ -1308,6 +1352,50 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1468993112}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!1 &1620892414
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1620892416}
+  - component: {fileID: 1620892415}
+  m_Layer: 0
+  m_Name: '[GameStartup]'
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1620892415
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1620892414}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6ef623342cf14fa190a4c3f565d7f7ad, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BLINK.Controller.GameStartup
+--- !u!4 &1620892416
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1620892414}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1652591782
 GameObject:
   m_ObjectHideFlags: 0
@@ -1589,6 +1677,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 1259015192425890, guid: 98a0661a1a68d9949b6b7d564da9f41f, type: 3}
       insertIndex: -1
       addedObject: {fileID: 2126466774}
+    - targetCorrespondingSourceObject: {fileID: 1259015192425890, guid: 98a0661a1a68d9949b6b7d564da9f41f, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2126466781}
   m_SourcePrefab: {fileID: 100100000, guid: 98a0661a1a68d9949b6b7d564da9f41f, type: 3}
 --- !u!1 &1798905869
 GameObject:
@@ -1813,24 +1904,22 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BLINK.Controller.CombatController
   animator: {fileID: 2126466777}
-  damagePopupPrefab: {fileID: 2713816936244421766, guid: 14de2299df584b9469486474f4b914e4, type: 3}
-  hitEffectPrefab: {fileID: 1737623684126279447, guid: 68cfc227f6f633b4490ca7771f071986, type: 3}
+  damagePopupPrefab: {fileID: 6910523135397548645, guid: 14de2299df584b9469486474f4b914e4, type: 3}
+  hitEffectPrefab: {fileID: 6152668829965801191, guid: 68cfc227f6f633b4490ca7771f071986, type: 3}
+  attackAction: {fileID: 0}
   attackRange: 1.6
   attackRadius: 0.8
   enemyLayer:
     serializedVersion: 2
     m_Bits: 4294967295
-  baseDamages:
-  - 40
-  - 55
-  - 75
-  - 110
+  baseDamage: 60
   hitNormalizedTimes:
   - 0.35
   - 0.4
   - 0.45
   - 0.5
   useAnimationEvents: 1
+  comboInputTimeout: 4
   comboWindowStarts:
   - 0.45
   - 0.45
@@ -1881,10 +1970,6 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  hitStreak: 0
-  streakDecayTime: 5
-  threshold1: 10
-  threshold2: 20
 --- !u!114 &2126466775
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1960,6 +2045,36 @@ Animator:
   m_CorrespondingSourceObject: {fileID: 95316331630631582, guid: 98a0661a1a68d9949b6b7d564da9f41f, type: 3}
   m_PrefabInstance: {fileID: 1792357757}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &2126466781
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2126466773}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 62899f850307741f2a39c98a8b639597, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.InputSystem::UnityEngine.InputSystem.PlayerInput
+  m_Actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
+  m_NotificationBehavior: 0
+  m_UIInputModule: {fileID: 0}
+  m_DeviceLostEvent:
+    m_PersistentCalls:
+      m_Calls: []
+  m_DeviceRegainedEvent:
+    m_PersistentCalls:
+      m_Calls: []
+  m_ControlsChangedEvent:
+    m_PersistentCalls:
+      m_Calls: []
+  m_ActionEvents: []
+  m_NeverAutoSwitchControlSchemes: 0
+  m_DefaultControlScheme: Keyboard&Mouse
+  m_DefaultActionMap: Player
+  m_SplitScreenIndex: -1
+  m_Camera: {fileID: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -1971,3 +2086,5 @@ SceneRoots:
   - {fileID: 465879149}
   - {fileID: 1438100503}
   - {fileID: 1792357757}
+  - {fileID: 1620892416}
+  - {fileID: 546715577}

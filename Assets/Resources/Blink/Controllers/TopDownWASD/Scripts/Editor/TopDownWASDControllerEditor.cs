@@ -3,10 +3,10 @@ using UnityEditorInternal;
 using UnityEngine;
 using UnityEngine.AI;
 
-namespace BLINK.Controller
+namespace BLINK.Controller.Editor
 {
     [CustomEditor(typeof(TopDownWASDController))]
-    public class TopDownWASDControllerEditor : Editor
+    public class TopDownWASDControllerEditor : UnityEditor.Editor
     {
         private TopDownWASDController REF;
         
