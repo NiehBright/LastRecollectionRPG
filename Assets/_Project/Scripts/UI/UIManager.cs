@@ -106,6 +106,64 @@ namespace RPG.Combat
                 Debug.Log("[UIManager] Đã khởi tạo EventSystem.");
             }
 
+            // Thử tải UI từ Prefab
+            GameObject uiPrefab = Resources.Load<GameObject>("Prefabs/CombatUI");
+            if (uiPrefab != null)
+            {
+                GameObject canvasInstance = Instantiate(uiPrefab);
+                DontDestroyOnLoad(canvasInstance);
+                overlayCanvas = canvasInstance.GetComponent<Canvas>();
+                
+                CombatUIReferences refs = canvasInstance.GetComponent<CombatUIReferences>();
+                if (refs != null)
+                {
+                    turnQueuePanel = refs.turnQueuePanel;
+                    partyPanel = refs.partyPanel;
+                    actionPanel = refs.actionPanel;
+                    descriptionPanel = refs.descriptionPanel;
+                    targetSelectionPanel = refs.targetSelectionPanel;
+                    endScreenPanel = refs.endScreenPanel;
+
+                    descriptionText = refs.descriptionText;
+                    endScreenText = refs.endScreenText;
+
+                    basicButton = refs.basicButton;
+                    specialButton = refs.specialButton;
+                    ultimateButton = refs.ultimateButton;
+                    defendButton = refs.defendButton;
+
+                    basicText = refs.basicText;
+                    specialText = refs.specialText;
+                    ultimateText = refs.ultimateText;
+
+                    // Gán các sự kiện click nút
+                    basicButton.onClick.RemoveAllListeners();
+                    basicButton.onClick.AddListener(() => OnSkillButtonClicked(SkillType.BASIC));
+
+                    specialButton.onClick.RemoveAllListeners();
+                    specialButton.onClick.AddListener(() => OnSkillButtonClicked(SkillType.SPECIAL));
+
+                    ultimateButton.onClick.RemoveAllListeners();
+                    ultimateButton.onClick.AddListener(() => OnSkillButtonClicked(SkillType.ULTIMATE));
+
+                    defendButton.onClick.RemoveAllListeners();
+                    defendButton.onClick.AddListener(() => OnGuardButtonClicked());
+
+                    if (refs.restartButton != null)
+                    {
+                        refs.restartButton.onClick.RemoveAllListeners();
+                        refs.restartButton.onClick.AddListener(() => {
+                            SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+                        });
+                    }
+
+                    Debug.Log("[UIManager] Đã tải thành công giao diện từ Prefab!");
+                    return;
+                }
+            }
+
+            Debug.LogWarning("[UIManager] Không tìm thấy Prefab UI. Tạo UI động bằng code...");
+
             // 1. Tạo Canvas chính
             GameObject canvasGO = new GameObject("CombatUI_OverlayCanvas");
             overlayCanvas = canvasGO.AddComponent<Canvas>();
@@ -883,7 +941,8 @@ namespace RPG.Combat
                 {
                     Vector2 mousePos = UnityEngine.InputSystem.Mouse.current.position.ReadValue();
                     Ray ray = Camera.main.ScreenPointToRay(mousePos);
-                    if (Physics.Raycast(ray, out RaycastHit hit))
+                    RaycastHit[] hits = Physics.RaycastAll(ray);
+                    foreach (var hit in hits)
                     {
                         CombatCharacter targetChar = hit.collider.GetComponentInParent<CombatCharacter>();
                         if (targetChar != null && activeTargetsList.Contains(targetChar))
