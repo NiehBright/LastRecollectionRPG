@@ -210,6 +210,7 @@ namespace RPG.Combat
 
         private void Start()
         {
+            isMenuOpen = false; // Reset trạng thái mở menu lúc bắt đầu
             // Khởi tạo showroom ảo 1 lần duy nhất lúc bắt đầu game để tránh lag
             CreateShowroom();
             if (showroomRoot != null)
@@ -226,6 +227,12 @@ namespace RPG.Combat
 
         public void ToggleMenu()
         {
+            // Tự sửa lỗi trạng thái: Nếu thực tế UI chưa được tạo, ép isMenuOpen về false
+            if (spawnedUIInstance == null)
+            {
+                isMenuOpen = false;
+            }
+
             if (isMenuOpen)
             {
                 CloseMenu();
