@@ -110,7 +110,25 @@ namespace BLINK.Controller
             bool isAttacking = _combatController != null && _combatController.IsAttacking;
             if (movementEnabled && !isAttacking) HandleMovement();
             else if (movementEnabled && isAttacking) HandleRotationOnly();
+            else ApplyGravityOnly();
+
             if (cameraEnabled)  CameraLogic();
+        }
+
+        private void ApplyGravityOnly()
+        {
+            if (_characterController == null) return;
+            
+            if (_characterController.isGrounded)
+                _displacement.y = -gravity * Time.deltaTime;
+            else
+            {
+                _verticalSpeed -= gravity * Time.deltaTime;
+                _displacement.y = _verticalSpeed * Time.deltaTime;
+            }
+            _displacement.x = 0;
+            _displacement.z = 0;
+            _characterController.Move(_displacement);
         }
 
         private void LateUpdate()

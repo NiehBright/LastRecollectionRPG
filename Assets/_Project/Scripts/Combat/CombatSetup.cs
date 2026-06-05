@@ -86,60 +86,117 @@ namespace RPG.Combat
             List<CombatCharacter> allies = new List<CombatCharacter>();
             List<CombatCharacter> enemies = new List<CombatCharacter>();
 
-            // Tạo các ScriptableObjects dữ liệu cho 4 Allies bằng code (In-Memory)
+            // Tạo các ScriptableObjects dữ liệu cho 4 Allies và 4 Enemies mặc định phòng hờ
             CharacterData ally1 = CreateAllyData("Fire Warrior", ElementType.Fire, new Color(0.9f, 0.2f, 0.1f), 800f, 120f, 60f, 110f, 0.20f, 1.50f);
             CharacterData ally2 = CreateAllyData("Ice Mage", ElementType.Ice, new Color(0.2f, 0.6f, 0.9f), 600f, 100f, 40f, 95f, 0.10f, 1.60f);
             CharacterData ally3 = CreateAllyData("Storm Rogue", ElementType.Lightning, new Color(0.9f, 0.8f, 0.1f), 700f, 140f, 50f, 125f, 0.30f, 1.80f);
             CharacterData ally4 = CreateAllyData("Nature Druid", ElementType.Nature, new Color(0.2f, 0.8f, 0.3f), 1000f, 80f, 70f, 100f, 0.05f, 1.20f);
 
-            // Tạo dữ liệu cho 4 Enemies
             CharacterData enemy1 = CreateEnemyData("Fire Slime", ElementType.Fire, new Color(0.8f, 0.1f, 0.1f), 700f, 90f, 40f, 90f);
             CharacterData enemy2 = CreateEnemyData("Ice Sentinel", ElementType.Ice, new Color(0.1f, 0.7f, 0.8f), 900f, 80f, 75f, 80f);
             CharacterData enemy3 = CreateEnemyData("Lightning Imp", ElementType.Lightning, new Color(0.7f, 0.1f, 0.8f), 600f, 110f, 45f, 120f);
             CharacterData enemy4 = CreateEnemyData("Forest Spider", ElementType.Nature, new Color(0.1f, 0.5f, 0.2f), 800f, 95f, 50f, 100f);
 
-            // Tọa độ định vị đội hình Allies (Xếp hàng ở dưới, hướng lên trên Z+)
-            Vector3[] allyPositions = new Vector3[]
-            {
-                new Vector3(-4.5f, 0f, -4f), // Trái ngoài
-                new Vector3(-1.5f, 0f, -4.5f), // Trái trong
-                new Vector3(1.5f, 0f, -4.5f), // Phải trong
-                new Vector3(4.5f, 0f, -4f)  // Phải ngoài
-            };
-
-            // Tọa độ định vị đội hình Enemies (Xếp hàng ở trên, hướng xuống dưới Z-)
-            Vector3[] enemyPositions = new Vector3[]
-            {
-                new Vector3(-4.5f, 0f, 4f),
-                new Vector3(-1.5f, 0f, 4.5f),
-                new Vector3(1.5f, 0f, 4.5f),
-                new Vector3(4.5f, 0f, 4f)
-            };
-
-            // Spawn Allies
             CharacterData[] allyDatas = new CharacterData[] { ally1, ally2, ally3, ally4 };
-            for (int i = 0; i < 4; i++)
-            {
-                GameObject go = new GameObject("Ally_" + allyDatas[i].characterName);
-                go.transform.position = allyPositions[i];
-                go.transform.rotation = Quaternion.identity;
+            CharacterData[] enemyDatas = new CharacterData[] { enemy1, enemy2, enemy3, enemy4 };
 
-                CombatCharacter cc = go.AddComponent<CombatCharacter>();
-                cc.Initialize(allyDatas[i], true);
-                allies.Add(cc);
+            // 1. Quét tìm các CombatCharacter có sẵn trên Hierarchy
+            CombatCharacter[] existingChars = FindObjectsByType<CombatCharacter>(FindObjectsSortMode.None);
+            
+            // 2. Tìm thêm các GameObject có tên chứa 'Ally_' hoặc 'Enemy_' nhưng thiếu script để tự động gán
+            if (existingChars == null || existingChars.Length == 0)
+            {
+                var allGOs = FindObjectsByType<GameObject>(FindObjectsSortMode.None);
+                List<CombatCharacter> foundList = new List<CombatCharacter>();
+                foreach (var go in allGOs)
+                {
+                    if (go.transform.parent == null) // Chỉ quét ở root Hierarchy để tránh lấy các model con bên trong
+                    {
+                        if (go.name.StartsWith("Ally_") || go.name.StartsWith("Enemy_"))
+                        {
+                            CombatCharacter cc = go.AddComponent<CombatCharacter>();
+                            cc.isAlly = go.name.StartsWith("Ally_");
+                            foundList.Add(cc);
+                        }
+                    }
+                }
+                if (foundList.Count > 0)
+                {
+                    existingChars = foundList.ToArray();
+                }
             }
 
-            // Spawn Enemies
-            CharacterData[] enemyDatas = new CharacterData[] { enemy1, enemy2, enemy3, enemy4 };
-            for (int i = 0; i < 4; i++)
+            // 3. Nếu tìm thấy nhân vật có sẵn, tiến hành liên kết và sử dụng
+            if (existingChars != null && existingChars.Length > 0)
             {
-                GameObject go = new GameObject("Enemy_" + enemyDatas[i].characterName);
-                go.transform.position = enemyPositions[i];
-                go.transform.rotation = Quaternion.Euler(0f, 180f, 0f); // Quay mặt về phía Allies
+                Debug.Log($"[CombatSetup] Tìm thấy {existingChars.Length} nhân vật có sẵn trên scene. Sử dụng chúng cho trận đấu.");
+                int allyIndex = 0;
+                int enemyIndex = 0;
 
-                CombatCharacter cc = go.AddComponent<CombatCharacter>();
-                cc.Initialize(enemyDatas[i], false);
-                enemies.Add(cc);
+                foreach (var cc in existingChars)
+                {
+                    if (cc.characterData == null)
+                    {
+                        if (cc.isAlly)
+                        {
+                            cc.characterData = allyDatas[Mathf.Min(allyIndex, allyDatas.Length - 1)];
+                            allyIndex++;
+                        }
+                        else
+                        {
+                            cc.characterData = enemyDatas[Mathf.Min(enemyIndex, enemyDatas.Length - 1)];
+                            enemyIndex++;
+                        }
+                    }
+
+                    cc.Initialize(cc.characterData, cc.isAlly);
+
+                    if (cc.isAlly) allies.Add(cc);
+                    else enemies.Add(cc);
+                }
+            }
+            else
+            {
+                // 4. Nếu hoàn toàn trống trơ, tiến hành tạo Capsule/Cylinder procedural dự phòng
+                Debug.Log("[CombatSetup] Scene trống trơn. Tạo các Capsule/Cylinder dự phòng bằng code...");
+                
+                Vector3[] allyPositions = new Vector3[]
+                {
+                    new Vector3(-4.5f, 0f, -4f),
+                    new Vector3(-1.5f, 0f, -4.5f),
+                    new Vector3(1.5f, 0f, -4.5f),
+                    new Vector3(4.5f, 0f, -4f)
+                };
+
+                Vector3[] enemyPositions = new Vector3[]
+                {
+                    new Vector3(-4.5f, 0f, 4f),
+                    new Vector3(-1.5f, 0f, 4.5f),
+                    new Vector3(1.5f, 0f, 4.5f),
+                    new Vector3(4.5f, 0f, 4f)
+                };
+
+                for (int i = 0; i < 4; i++)
+                {
+                    GameObject go = new GameObject("Ally_" + allyDatas[i].characterName);
+                    go.transform.position = allyPositions[i];
+                    go.transform.rotation = Quaternion.identity;
+
+                    CombatCharacter cc = go.AddComponent<CombatCharacter>();
+                    cc.Initialize(allyDatas[i], true);
+                    allies.Add(cc);
+                }
+
+                for (int i = 0; i < 4; i++)
+                {
+                    GameObject go = new GameObject("Enemy_" + enemyDatas[i].characterName);
+                    go.transform.position = enemyPositions[i];
+                    go.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+
+                    CombatCharacter cc = go.AddComponent<CombatCharacter>();
+                    cc.Initialize(enemyDatas[i], false);
+                    enemies.Add(cc);
+                }
             }
 
             // Kích hoạt trận đấu

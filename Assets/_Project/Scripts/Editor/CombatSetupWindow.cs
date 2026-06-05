@@ -32,6 +32,13 @@ namespace RPG.Combat
             {
                 BuildCombatUIPrefab();
             }
+
+            GUILayout.Space(10);
+
+            if (GUILayout.Button("Khởi Tạo Menu Nhân Vật Prefab (Build Character Menu Prefab)", GUILayout.Height(40)))
+            {
+                BuildCharacterMenuUIPrefab();
+            }
         }
 
         private void SetupScene()
@@ -102,7 +109,12 @@ namespace RPG.Combat
             Canvas canvas = canvasGO.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             
-            canvasGO.AddComponent<CanvasScaler>();
+            CanvasScaler scaler = canvasGO.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+            scaler.matchWidthOrHeight = 0.5f;
+
             canvasGO.AddComponent<GraphicRaycaster>();
             
             CombatUIReferences refs = canvasGO.AddComponent<CombatUIReferences>();
@@ -336,6 +348,310 @@ namespace RPG.Combat
             btn.colors = colors;
 
             return btn;
+        }
+
+        private static void BuildCharacterMenuUIPrefab()
+        {
+            // 1. Tạo Canvas chính
+            GameObject canvasGO = new GameObject("CharacterMenuUI_Canvas");
+            Canvas canvas = canvasGO.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            
+            CanvasScaler scaler = canvasGO.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+            scaler.matchWidthOrHeight = 0.5f;
+
+            canvasGO.AddComponent<GraphicRaycaster>();
+            
+            CharacterMenuUIReferences refs = canvasGO.AddComponent<CharacterMenuUIReferences>();
+
+            // 2. Background tối mờ
+            GameObject bgGO = new GameObject("Background");
+            bgGO.transform.SetParent(canvasGO.transform, false);
+            RectTransform bgRect = bgGO.AddComponent<RectTransform>();
+            bgRect.anchorMin = Vector2.zero;
+            bgRect.anchorMax = Vector2.one;
+            bgRect.sizeDelta = Vector2.zero;
+            bgRect.localPosition = Vector3.zero;
+            bgRect.localRotation = Quaternion.identity;
+            bgRect.localScale = Vector3.one;
+            
+            Image bgImg = bgGO.AddComponent<Image>();
+            bgImg.color = new Color(0.05f, 0.06f, 0.08f, 0.9f);
+
+            // 3. Nút Đóng (Close Button)
+            GameObject closeBtnGO = new GameObject("CloseButton");
+            closeBtnGO.transform.SetParent(canvasGO.transform, false);
+            RectTransform closeRect = closeBtnGO.AddComponent<RectTransform>();
+            closeRect.anchorMin = new Vector2(1f, 1f);
+            closeRect.anchorMax = new Vector2(1f, 1f);
+            closeRect.pivot = new Vector2(1f, 1f);
+            closeRect.anchoredPosition = new Vector2(-20f, -20f);
+            closeRect.sizeDelta = new Vector2(40f, 40f);
+            closeRect.localPosition = new Vector3(closeRect.localPosition.x, closeRect.localPosition.y, 0f);
+            closeRect.localRotation = Quaternion.identity;
+            closeRect.localScale = Vector3.one;
+            
+            Image cbImg = closeBtnGO.AddComponent<Image>();
+            cbImg.color = new Color(0.3f, 0.1f, 0.1f, 0.8f);
+            refs.closeButton = closeBtnGO.AddComponent<Button>();
+
+            GameObject closeTextGO = new GameObject("Text");
+            closeTextGO.transform.SetParent(closeBtnGO.transform, false);
+            RectTransform ctRect = closeTextGO.AddComponent<RectTransform>();
+            ctRect.anchorMin = Vector2.zero;
+            ctRect.anchorMax = Vector2.one;
+            ctRect.sizeDelta = Vector2.zero;
+            ctRect.localPosition = Vector3.zero;
+            ctRect.localRotation = Quaternion.identity;
+            ctRect.localScale = Vector3.one;
+            
+            Text ct = closeTextGO.AddComponent<Text>();
+            ct.text = "X";
+            ct.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            ct.fontSize = 20;
+            ct.alignment = TextAnchor.MiddleCenter;
+            ct.color = Color.white;
+
+            // 4. Panel bên trái (LeftPanel - Scroll View)
+            GameObject leftPanelGO = new GameObject("LeftPanel");
+            leftPanelGO.transform.SetParent(canvasGO.transform, false);
+            RectTransform lpRect = leftPanelGO.AddComponent<RectTransform>();
+            lpRect.anchorMin = new Vector2(0f, 0.5f);
+            lpRect.anchorMax = new Vector2(0f, 0.5f);
+            lpRect.pivot = new Vector2(0f, 0.5f);
+            lpRect.anchoredPosition = new Vector2(40f, 0f);
+            lpRect.sizeDelta = new Vector2(240f, 500f);
+            lpRect.localPosition = new Vector3(lpRect.localPosition.x, lpRect.localPosition.y, 0f);
+            lpRect.localRotation = Quaternion.identity;
+            lpRect.localScale = Vector3.one;
+
+            Image lpImg = leftPanelGO.AddComponent<Image>();
+            lpImg.color = new Color(0.1f, 0.12f, 0.16f, 0.6f);
+
+            // Tạo Scroll View
+            GameObject scrollViewGO = new GameObject("ScrollView");
+            scrollViewGO.transform.SetParent(leftPanelGO.transform, false);
+            RectTransform svRect = scrollViewGO.AddComponent<RectTransform>();
+            svRect.anchorMin = Vector2.zero;
+            svRect.anchorMax = Vector2.one;
+            svRect.sizeDelta = Vector2.zero;
+            svRect.localPosition = Vector3.zero;
+            svRect.localRotation = Quaternion.identity;
+            svRect.localScale = Vector3.one;
+
+            ScrollRect scrollRect = scrollViewGO.AddComponent<ScrollRect>();
+            scrollRect.horizontal = false;
+            scrollRect.vertical = true;
+
+            // Tạo Viewport để che các nút thừa
+            GameObject viewportGO = new GameObject("Viewport");
+            viewportGO.transform.SetParent(scrollViewGO.transform, false);
+            RectTransform vpRect = viewportGO.AddComponent<RectTransform>();
+            vpRect.anchorMin = Vector2.zero;
+            vpRect.anchorMax = Vector2.one;
+            vpRect.sizeDelta = Vector2.zero;
+            vpRect.localPosition = Vector3.zero;
+            vpRect.localRotation = Quaternion.identity;
+            vpRect.localScale = Vector3.one;
+            viewportGO.AddComponent<RectMask2D>();
+
+            // Tạo Content chứa các nút
+            GameObject contentGO = new GameObject("Content");
+            contentGO.transform.SetParent(viewportGO.transform, false);
+            RectTransform contentRect = contentGO.AddComponent<RectTransform>();
+            contentRect.anchorMin = new Vector2(0f, 1f); // Neo trên cùng
+            contentRect.anchorMax = new Vector2(1f, 1f);
+            contentRect.pivot = new Vector2(0.5f, 1f);
+            contentRect.anchoredPosition = Vector2.zero;
+            contentRect.sizeDelta = new Vector2(0f, 0f);
+            contentRect.localPosition = Vector3.zero;
+            contentRect.localRotation = Quaternion.identity;
+            contentRect.localScale = Vector3.one;
+
+            VerticalLayoutGroup lpLayout = contentGO.AddComponent<VerticalLayoutGroup>();
+            lpLayout.childAlignment = TextAnchor.UpperCenter;
+            lpLayout.spacing = 12f;
+            lpLayout.padding = new RectOffset(10, 10, 15, 15);
+            lpLayout.childControlHeight = false;
+            lpLayout.childControlWidth = false;
+
+            // ContentSizeFitter tự động giãn chiều cao theo số lượng button nhân vật
+            ContentSizeFitter fitter = contentGO.AddComponent<ContentSizeFitter>();
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+
+            // Kết nối ScrollRect
+            scrollRect.viewport = vpRect;
+            scrollRect.content = contentRect;
+
+            refs.characterListParent = contentGO.transform;
+
+            // 5. Panel xem mô hình 3D (MiddlePanel)
+            GameObject midPanelGO = new GameObject("MiddlePanel");
+            midPanelGO.transform.SetParent(canvasGO.transform, false);
+            RectTransform mpRect = midPanelGO.AddComponent<RectTransform>();
+            mpRect.anchorMin = new Vector2(0.5f, 0.5f);
+            mpRect.anchorMax = new Vector2(0.5f, 0.5f);
+            mpRect.pivot = new Vector2(0.5f, 0.5f);
+            mpRect.anchoredPosition = new Vector2(-40f, 0f);
+            mpRect.sizeDelta = new Vector2(480f, 500f);
+            mpRect.localPosition = new Vector3(mpRect.localPosition.x, mpRect.localPosition.y, 0f);
+            mpRect.localRotation = Quaternion.identity;
+            mpRect.localScale = Vector3.one;
+
+            refs.modelRenderImage = midPanelGO.AddComponent<RawImage>();
+            refs.modelRenderImage.color = Color.white;
+
+            // Thêm ShowroomRotator
+            ShowroomRotator rotator = midPanelGO.AddComponent<ShowroomRotator>();
+            rotator.rotationSpeed = 0.5f;
+
+            // 6. Panel bên phải (RightPanel)
+            GameObject rightPanelGO = new GameObject("RightPanel");
+            rightPanelGO.transform.SetParent(canvasGO.transform, false);
+            RectTransform rpRect = rightPanelGO.AddComponent<RectTransform>();
+            rpRect.anchorMin = new Vector2(1f, 0.5f);
+            rpRect.anchorMax = new Vector2(1f, 0.5f);
+            rpRect.pivot = new Vector2(1f, 0.5f);
+            rpRect.anchoredPosition = new Vector2(-40f, 0f);
+            rpRect.sizeDelta = new Vector2(340f, 500f);
+            rpRect.localPosition = new Vector3(rpRect.localPosition.x, rpRect.localPosition.y, 0f);
+            rpRect.localRotation = Quaternion.identity;
+            rpRect.localScale = Vector3.one;
+
+            Image rpImg = rightPanelGO.AddComponent<Image>();
+            rpImg.color = new Color(0.1f, 0.12f, 0.16f, 0.85f);
+            refs.statsPanel = rightPanelGO.transform;
+
+            // Tên nhân vật
+            GameObject nameGO = new GameObject("NameText");
+            nameGO.transform.SetParent(rightPanelGO.transform, false);
+            RectTransform nameRect = nameGO.AddComponent<RectTransform>();
+            nameRect.anchorMin = new Vector2(0f, 1f);
+            nameRect.anchorMax = new Vector2(1f, 1f);
+            nameRect.pivot = new Vector2(0.5f, 1f);
+            nameRect.anchoredPosition = new Vector2(20f, -20f);
+            nameRect.sizeDelta = new Vector2(-40f, 30f);
+            nameRect.localPosition = new Vector3(nameRect.localPosition.x, nameRect.localPosition.y, 0f);
+            nameRect.localRotation = Quaternion.identity;
+            nameRect.localScale = Vector3.one;
+            
+            refs.characterNameText = nameGO.AddComponent<Text>();
+            refs.characterNameText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            refs.characterNameText.fontSize = 24;
+            refs.characterNameText.color = Color.white;
+            refs.characterNameText.text = "Character Name";
+
+            // Hệ nguyên tố
+            GameObject elementGO = new GameObject("ElementText");
+            elementGO.transform.SetParent(rightPanelGO.transform, false);
+            RectTransform elRect = elementGO.AddComponent<RectTransform>();
+            elRect.anchorMin = new Vector2(0f, 1f);
+            elRect.anchorMax = new Vector2(1f, 1f);
+            elRect.pivot = new Vector2(0.5f, 1f);
+            elRect.anchoredPosition = new Vector2(20f, -50f);
+            elRect.sizeDelta = new Vector2(-40f, 20f);
+            elRect.localPosition = new Vector3(elRect.localPosition.x, elRect.localPosition.y, 0f);
+            elRect.localRotation = Quaternion.identity;
+            elRect.localScale = Vector3.one;
+            
+            refs.characterElementText = elementGO.AddComponent<Text>();
+            refs.characterElementText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            refs.characterElementText.fontSize = 14;
+            refs.characterElementText.color = Color.yellow;
+            refs.characterElementText.text = "Thuộc tính: Lửa";
+
+            // Chỉ số stats
+            GameObject statsTextGO = new GameObject("StatsText");
+            statsTextGO.transform.SetParent(rightPanelGO.transform, false);
+            RectTransform stRect = statsTextGO.AddComponent<RectTransform>();
+            stRect.anchorMin = new Vector2(0f, 1f);
+            stRect.anchorMax = new Vector2(1f, 1f);
+            stRect.pivot = new Vector2(0.5f, 1f);
+            stRect.anchoredPosition = new Vector2(20f, -80f);
+            stRect.sizeDelta = new Vector2(-40f, 160f);
+            stRect.localPosition = new Vector3(stRect.localPosition.x, stRect.localPosition.y, 0f);
+            stRect.localRotation = Quaternion.identity;
+            stRect.localScale = Vector3.one;
+            
+            refs.characterStatsText = statsTextGO.AddComponent<Text>();
+            refs.characterStatsText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            refs.characterStatsText.fontSize = 13;
+            refs.characterStatsText.lineSpacing = 1.3f;
+            refs.characterStatsText.color = new Color(0.85f, 0.85f, 0.85f);
+            refs.characterStatsText.text = "HP:\nATK:\nDEF:\nSPEED:\nCRIT RATE:\nCRIT DMG:";
+
+            // Divider line
+            GameObject divGO = new GameObject("Divider");
+            divGO.transform.SetParent(rightPanelGO.transform, false);
+            RectTransform divRect = divGO.AddComponent<RectTransform>();
+            divRect.anchorMin = new Vector2(0f, 1f);
+            divRect.anchorMax = new Vector2(1f, 1f);
+            divRect.pivot = new Vector2(0.5f, 1f);
+            divRect.anchoredPosition = new Vector2(20f, -250f);
+            divRect.sizeDelta = new Vector2(-40f, 2f);
+            divRect.localPosition = new Vector3(divRect.localPosition.x, divRect.localPosition.y, 0f);
+            divRect.localRotation = Quaternion.identity;
+            divRect.localScale = Vector3.one;
+            Image divImg = divGO.AddComponent<Image>();
+            divImg.color = new Color(0.3f, 0.35f, 0.4f, 0.5f);
+
+            // Kỹ năng Label
+            GameObject skillLabelGO = new GameObject("SkillLabel");
+            skillLabelGO.transform.SetParent(rightPanelGO.transform, false);
+            RectTransform slRect = skillLabelGO.AddComponent<RectTransform>();
+            slRect.anchorMin = new Vector2(0f, 1f);
+            slRect.anchorMax = new Vector2(1f, 1f);
+            slRect.pivot = new Vector2(0.5f, 1f);
+            slRect.anchoredPosition = new Vector2(20f, -260f);
+            slRect.sizeDelta = new Vector2(-40f, 20f);
+            slRect.localPosition = new Vector3(slRect.localPosition.x, slRect.localPosition.y, 0f);
+            slRect.localRotation = Quaternion.identity;
+            slRect.localScale = Vector3.one;
+            Text slt = skillLabelGO.AddComponent<Text>();
+            slt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            slt.fontSize = 14;
+            slt.color = Color.white;
+            slt.text = "Danh Sách Kỹ Năng:";
+
+            // Kỹ năng list parent
+            GameObject skillListGO = new GameObject("SkillList");
+            skillListGO.transform.SetParent(rightPanelGO.transform, false);
+            RectTransform sListRect = skillListGO.AddComponent<RectTransform>();
+            sListRect.anchorMin = new Vector2(0f, 0f);
+            sListRect.anchorMax = new Vector2(1f, 1f);
+            sListRect.pivot = new Vector2(0.5f, 0f);
+            sListRect.offsetMin = new Vector2(20f, 20f);
+            sListRect.offsetMax = new Vector2(-20f, -285f);
+            sListRect.localPosition = new Vector3(sListRect.localPosition.x, sListRect.localPosition.y, 0f);
+            sListRect.localRotation = Quaternion.identity;
+            sListRect.localScale = Vector3.one;
+
+            VerticalLayoutGroup skillLayout = skillListGO.AddComponent<VerticalLayoutGroup>();
+            skillLayout.childAlignment = TextAnchor.UpperLeft;
+            skillLayout.spacing = 8f;
+            skillLayout.childControlHeight = false;
+            skillLayout.childControlWidth = false;
+            refs.skillListParent = skillListGO.transform;
+
+            // 7. Tạo thư mục Prefabs nếu chưa có
+            string folderPath = "Assets/_Project/Resources/Prefabs";
+            if (!UnityEditor.AssetDatabase.IsValidFolder(folderPath))
+            {
+                System.IO.Directory.CreateDirectory(folderPath);
+                UnityEditor.AssetDatabase.Refresh();
+            }
+
+            // 8. Lưu thành Prefab
+            string prefabPath = folderPath + "/CharacterMenuUI.prefab";
+            PrefabUtility.SaveAsPrefabAsset(canvasGO, prefabPath);
+            DestroyImmediate(canvasGO);
+
+            UnityEditor.AssetDatabase.Refresh();
+            EditorUtility.DisplayDialog("Thành công", "Đã tạo/Cập nhật Menu Nhân Vật Prefab thành công tại: " + prefabPath + "\n\nBây giờ bạn có thể kéo thả và chỉnh sửa visual của Prefab này theo ý muốn!", "Tuyệt vời");
         }
     }
 }

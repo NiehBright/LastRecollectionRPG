@@ -82,6 +82,24 @@ namespace RPG.Combat
 
         private void CreateProceduralModel()
         {
+            // 1. Kiểm tra xem người dùng đã gán sẵn modelRoot trong Inspector chưa
+            if (modelRoot != null && modelRoot != transform)
+            {
+                Debug.Log($"[CombatCharacter] {characterData?.characterName ?? name} đã có sẵn modelRoot. Bỏ qua tạo model procedural.");
+                originalPosition = transform.position;
+                return;
+            }
+
+            // 2. Tìm xem có Animator nào có sẵn trong các gameobject con không (chứng tỏ có model 3D thực tế)
+            Animator existingAnimator = GetComponentInChildren<Animator>();
+            if (existingAnimator != null && existingAnimator.gameObject != gameObject)
+            {
+                Debug.Log($"[CombatCharacter] {characterData?.characterName ?? name} đã có sẵn model thật chứa Animator: {existingAnimator.gameObject.name}. Sử dụng model này.");
+                modelRoot = existingAnimator.transform;
+                originalPosition = transform.position;
+                return;
+            }
+
             // Xóa mô hình cũ nếu có
             if (modelRoot != null)
             {
@@ -522,10 +540,10 @@ namespace RPG.Combat
             {
                 elapsed += Time.deltaTime;
                 float t = elapsed / duration;
-                modelRoot.position = Vector3.Lerp(startPos, strikePos, t * t); // Lerp mượt
+                transform.position = Vector3.Lerp(startPos, strikePos, t * t); // Lerp mượt toàn bộ nhân vật
                 yield return null;
             }
-            modelRoot.position = strikePos;
+            transform.position = strikePos;
 
             // 2. Gây sát thương tại điểm va chạm
             onImpact?.Invoke();
@@ -540,10 +558,10 @@ namespace RPG.Combat
             {
                 elapsed += Time.deltaTime;
                 float t = elapsed / duration;
-                modelRoot.position = Vector3.Lerp(strikePos, startPos, t);
+                transform.position = Vector3.Lerp(strikePos, startPos, t);
                 yield return null;
             }
-            modelRoot.position = startPos;
+            transform.position = startPos;
             activeAnimCoroutine = null;
 
             onComplete?.Invoke();
@@ -575,11 +593,11 @@ namespace RPG.Combat
                 // Knockback nhẹ về phía sau (Ally bị đẩy về -Z, Enemy đẩy về +Z)
                 float zOffset = (isAlly ? -0.3f : 0.3f) * damper;
 
-                modelRoot.position = new Vector3(startPos.x + x, startPos.y, startPos.z + zOffset);
+                transform.position = new Vector3(startPos.x + x, startPos.y, startPos.z + zOffset);
                 yield return null;
             }
 
-            modelRoot.position = startPos;
+            transform.position = startPos;
         }
 
         private void PlayDeathAnimation()
@@ -592,7 +610,7 @@ namespace RPG.Combat
         {
             float duration = 1.0f;
             float elapsed = 0f;
-            Vector3 startPos = modelRoot.position;
+            Vector3 startPos = transform.position;
 
             while (elapsed < duration)
             {
@@ -600,11 +618,11 @@ namespace RPG.Combat
                 float t = elapsed / duration;
 
                 // Xoay tròn và chìm xuống đất
-                modelRoot.Rotate(Vector3.up, 360f * Time.deltaTime * 2);
-                modelRoot.position = new Vector3(startPos.x, startPos.y - (t * 2f), startPos.z);
+                transform.Rotate(Vector3.up, 360f * Time.deltaTime * 2);
+                transform.position = new Vector3(startPos.x, startPos.y - (t * 2f), startPos.z);
                 
-                // Mờ dần (nếu dùng shader mờ, ở đây ta thu nhỏ mô hình lại)
-                modelRoot.localScale = Vector3.Lerp(Vector3.one, Vector3.zero, t);
+                // Mờ dần (thu nhỏ toàn bộ gameobject nhân vật)
+                transform.localScale = Vector3.Lerp(Vector3.one, Vector3.zero, t);
                 yield return null;
             }
             

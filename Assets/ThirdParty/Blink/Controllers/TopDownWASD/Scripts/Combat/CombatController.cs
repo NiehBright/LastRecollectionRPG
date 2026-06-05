@@ -273,7 +273,26 @@ namespace BLINK.Controller
                     float currentFactor = lungeCurve.Evaluate(normTime);
                     float delta = (currentFactor - prevLungeFactor) * lungeDistance;
                     if (delta > 0f)
-                        _cc.Move(transform.forward * delta);
+                    {
+                        // Kiểm tra xem có quái vật nào quá gần không để chặn lunge (tránh lỗi bay lên trời)
+                        bool enemyTooClose = false;
+                        int closeEnemyCount = Physics.OverlapSphereNonAlloc(transform.position, 1.1f, _hitBuffer, enemyLayer, QueryTriggerInteraction.Ignore);
+                        for (int e = 0; e < closeEnemyCount; e++)
+                        {
+                            if (_hitBuffer[e] != null && _hitBuffer[e].CompareTag("Enemy"))
+                            {
+                                enemyTooClose = true;
+                                break;
+                            }
+                        }
+
+                        if (!enemyTooClose)
+                        {
+                            // Chỉ chiếu hướng lunge lên mặt phẳng ngang (XZ) để không bị bay lên
+                            Vector3 lungeDir = new Vector3(transform.forward.x, 0f, transform.forward.z).normalized;
+                            _cc.Move(lungeDir * delta);
+                        }
+                    }
                     prevLungeFactor = currentFactor;
                 }
 
@@ -285,11 +304,13 @@ namespace BLINK.Controller
                 if (useAnimationEvents && !_activeAttackHitConsumed && normTime >= hitNormTime + 0.15f)
                     ApplyHit(index); // safety fallback if event was missed
 
-                // --- Interrupt sheathing with movement ---
+                // --- Interrupt sheathing with movement (Vô hiệu hóa để chạy hết animation chém) ---
+                /*
                 if (normTime >= windowStart && HasMovementInput())
                 {
                     break;
                 }
+                */
 
                 // --- Combo window (Disabled for Single Strike) ---
 
@@ -382,11 +403,10 @@ namespace BLINK.Controller
                 if (c == null || !c.CompareTag("Enemy")) continue;
 
                 var enemy = c.GetComponent<EnemyDummy>();
-                float damage = baseDamage;
 
                 if (enemy != null)
                 {
-                    enemy.TakeDamage(damage);
+                    // Đã loại bỏ việc gây sát thương (TakeDamage) ở thế giới thực
 
                     // Kích hoạt chuyển cảnh trễ sang TurnBase
                     if (!_isTransitioning)
@@ -404,11 +424,7 @@ namespace BLINK.Controller
                     }
                 }
 
-                Vector3 popupPos = c.transform.position + Vector3.up * 1.2f;
-                if (damagePopupPrefab != null)
-                    DamagePopup.SpawnFromPrefab(damagePopupPrefab, popupPos, "Đòn " + (index + 1), Mathf.RoundToInt(damage));
-                else
-                    DamagePopup.Spawn(popupPos, "Đòn " + (index + 1), Mathf.RoundToInt(damage));
+                // Đã loại bỏ UI số sát thương bay lên (Damage Popup) ở thế giới thực
 
                 if (hitEffectPrefab != null)
                     Instantiate(hitEffectPrefab, c.bounds.center + Vector3.up * 0.2f, Quaternion.identity);
@@ -417,8 +433,13 @@ namespace BLINK.Controller
 
         private IEnumerator CoTriggerTurnBaseTransition()
         {
-            Debug.Log("[CombatController] Chém trúng quái! Chuẩn bị chuyển cảnh sang TurnBase...");
-            yield return new WaitForSeconds(0.4f); // Trễ 0.4s để hiệu ứng trúng đòn kịp hiển thị
+            Debug.Log("[CombatController] Chém trúng quái! Chờ chạy hết animation chém...");
+            // Chờ cho đến khi đòn đánh kết thúc hoàn chỉnh (IsAttacking / _isAttacking trở về false)
+            while (_isAttacking)
+            {
+                yield return null;
+            }
+            yield return new WaitForSeconds(0.2f); // Thêm trễ ngắn 0.2s cho mượt mà
             UnityEngine.SceneManagement.SceneManager.LoadScene("TurnBase");
         }
 
