@@ -64,6 +64,7 @@ namespace BLINK.Controller
         float _lastAttackInputTime = -10f;
         Coroutine _attackCoroutine;
         bool _attackActionEnabledByUs;
+        bool _isTransitioning = false;
 
         // --- Cached references ---
         CharacterController _cc;
@@ -189,32 +190,12 @@ namespace BLINK.Controller
         // ─────────── INPUT ───────────
         void OnAttackInput()
         {
-            Debug.Log($"[CombatController] OnAttackInput called! IsAttacking={_isAttacking}, ComboIndex={_comboIndex}");
-            
-            float now = Time.time;
-            bool comboExpired = now - _lastAttackInputTime > comboInputTimeout;
-            _lastAttackInputTime = now;
+            if (_isAttacking) return; // Chỉ cho phép đánh 1 đòn duy nhất khi rảnh
 
-            if (!_isAttacking || comboExpired)
-            {
-                if (_isAttacking && comboExpired)
-                {
-                    Debug.Log("[CombatController] Combo expired, cancelling");
-                    CancelCombo();
-                }
-
-                // Start fresh combo from Attack1
-                _comboIndex = 0;
-                _comboQueued = false;
-                Debug.Log("[CombatController] Starting new combo from Attack1");
-                StartAttack(_comboIndex);
-            }
-            else
-            {
-                // We're mid-attack: queue the next hit (validated inside the combo window)
-                Debug.Log($"[CombatController] Queuing next combo input (current={_comboIndex})");
-                _comboQueued = true;
-            }
+            Debug.Log("[CombatController] Starting single attack (Honkai Style)");
+            _comboIndex = 0;
+            _comboQueued = false;
+            StartAttack(0);
         }
 
         void StartAttack(int index)
@@ -310,18 +291,7 @@ namespace BLINK.Controller
                     break;
                 }
 
-                // --- Combo window ---
-                if (_comboQueued && !comboAccepted
-                    && normTime >= windowStart && normTime <= windowEnd
-                    && index < 3) // can't combo past Attack4
-                {
-                    comboAccepted = true;
-                    int nextIndex = index + 1;
-                    _comboIndex = nextIndex;
-                    _comboQueued = false;
-                    // Trigger the next attack now (the Animator transition will handle blending)
-                    animator.SetTrigger(AttackTriggerHashes[nextIndex]);
-                }
+                // --- Combo window (Disabled for Single Strike) ---
 
                 // --- Exit condition: attack animation has fully played ---
                 if (normTime >= 0.95f && !animator.IsInTransition(layerToCheck))
@@ -415,7 +385,24 @@ namespace BLINK.Controller
                 float damage = baseDamage;
 
                 if (enemy != null)
+                {
                     enemy.TakeDamage(damage);
+
+                    // Kích hoạt chuyển cảnh trễ sang TurnBase
+                    if (!_isTransitioning)
+                    {
+                        _isTransitioning = true;
+                        
+                        // Tắt di chuyển của Player để tránh chạy lung tung khi chuyển cảnh
+                        var wasdController = GetComponent<TopDownWASDController>();
+                        if (wasdController != null)
+                        {
+                            wasdController.movementEnabled = false;
+                        }
+
+                        StartCoroutine(CoTriggerTurnBaseTransition());
+                    }
+                }
 
                 Vector3 popupPos = c.transform.position + Vector3.up * 1.2f;
                 if (damagePopupPrefab != null)
@@ -426,6 +413,13 @@ namespace BLINK.Controller
                 if (hitEffectPrefab != null)
                     Instantiate(hitEffectPrefab, c.bounds.center + Vector3.up * 0.2f, Quaternion.identity);
             }
+        }
+
+        private IEnumerator CoTriggerTurnBaseTransition()
+        {
+            Debug.Log("[CombatController] Chém trúng quái! Chuẩn bị chuyển cảnh sang TurnBase...");
+            yield return new WaitForSeconds(0.4f); // Trễ 0.4s để hiệu ứng trúng đòn kịp hiển thị
+            UnityEngine.SceneManagement.SceneManager.LoadScene("TurnBase");
         }
 
         // ─────────── PUBLIC API ───────────
