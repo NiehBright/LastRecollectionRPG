@@ -278,7 +278,7 @@ namespace RPG.Combat
             endGO.SetActive(false);
 
             // 7. Tạo thư mục Prefabs nếu chưa có
-            string folderPath = "Assets/Resources/Prefabs";
+            string folderPath = "Assets/_Project/Resources/Prefabs";
             if (!AssetDatabase.IsValidFolder(folderPath))
             {
                 System.IO.Directory.CreateDirectory(folderPath);
