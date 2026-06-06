@@ -169,10 +169,9 @@ namespace RPG.Combat
 
         private void CreateFloatingHUD()
         {
-            // Tạo Canvas thế giới
+            // Tạo Canvas thế giới (Không SetParent vào transform để tránh bị ảnh hưởng bởi scale bất thường của nhân vật/quái)
             GameObject canvasGO = new GameObject("FloatingHUD");
-            canvasGO.transform.SetParent(transform);
-            canvasGO.transform.localPosition = new Vector3(0, 2.3f, 0); // Nổi phía trên đầu
+            canvasGO.transform.position = transform.position + new Vector3(0, 2.3f, 0);
 
             hudCanvas = canvasGO.AddComponent<Canvas>();
             hudCanvas.renderMode = RenderMode.WorldSpace;
@@ -185,11 +184,12 @@ namespace RPG.Combat
             RectTransform rect = hudCanvas.GetComponent<RectTransform>();
             rect.sizeDelta = new Vector2(150f, 40f);
             rect.localScale = new Vector3(0.01f, 0.01f, 0.01f); // Tỷ lệ chuẩn (100 pixel = 1 mét)
-            rect.localPosition = new Vector3(0, 2.3f, 0);
             rect.localRotation = Quaternion.identity;
 
-            // Hướng HUD về phía Camera (Billboard)
-            canvasGO.AddComponent<BillboardHUD>();
+            // Thêm script điều hướng theo nhân vật và billboard
+            WorldSpaceHUD hudFollow = canvasGO.AddComponent<WorldSpaceHUD>();
+            hudFollow.target = transform;
+            hudFollow.offset = new Vector3(0f, 2.3f, 0f);
 
             // Tạo Panel nền cho HP Bar
             GameObject hpBgGO = new GameObject("HPBar_Bg");
@@ -209,13 +209,17 @@ namespace RPG.Combat
             hpFillGO.transform.localPosition = Vector3.zero;
             RectTransform hpFillRect = hpFillGO.AddComponent<RectTransform>();
             hpFillRect.anchorMin = Vector2.zero;
-            hpFillRect.anchorMax = new Vector2(1f, 1f);
+            hpFillRect.anchorMax = Vector2.one;
             hpFillRect.offsetMin = Vector2.zero;
             hpFillRect.offsetMax = Vector2.zero;
             hpFillRect.localPosition = Vector3.zero;
             hpFillRect.localScale = Vector3.one;
             hpFillRect.localRotation = Quaternion.identity;
+            
             hpBarFill = hpFillGO.AddComponent<Image>();
+            hpBarFill.type = Image.Type.Filled;
+            hpBarFill.fillMethod = Image.FillMethod.Horizontal;
+            hpBarFill.fillOrigin = (int)Image.OriginHorizontal.Left;
             hpBarFill.color = isAlly ? new Color(0.1f, 0.8f, 0.1f) : new Color(0.9f, 0.1f, 0.1f);
 
             // Tạo Energy Bar
@@ -235,13 +239,17 @@ namespace RPG.Combat
             energyFillGO.transform.localPosition = Vector3.zero;
             RectTransform enFillRect = energyFillGO.AddComponent<RectTransform>();
             enFillRect.anchorMin = Vector2.zero;
-            enFillRect.anchorMax = new Vector2(currentEnergy / 100f, 1f);
+            enFillRect.anchorMax = Vector2.one;
             enFillRect.offsetMin = Vector2.zero;
             enFillRect.offsetMax = Vector2.zero;
             enFillRect.localPosition = Vector3.zero;
             enFillRect.localScale = Vector3.one;
             enFillRect.localRotation = Quaternion.identity;
+            
             energyBarFill = energyFillGO.AddComponent<Image>();
+            energyBarFill.type = Image.Type.Filled;
+            energyBarFill.fillMethod = Image.FillMethod.Horizontal;
+            energyBarFill.fillOrigin = (int)Image.OriginHorizontal.Left;
             energyBarFill.color = new Color(0.1f, 0.6f, 0.9f);
 
             // Tạo Container chứa các buff/debuff
@@ -269,11 +277,11 @@ namespace RPG.Combat
         {
             if (hpBarFill != null)
             {
-                hpBarFill.rectTransform.anchorMax = new Vector2(maxHP > 0f ? Mathf.Clamp01(currentHP / maxHP) : 0f, 1f);
+                hpBarFill.fillAmount = maxHP > 0f ? Mathf.Clamp01(currentHP / maxHP) : 0f;
             }
             if (energyBarFill != null)
             {
-                energyBarFill.rectTransform.anchorMax = new Vector2(Mathf.Clamp01(currentEnergy / 100f), 1f);
+                energyBarFill.fillAmount = Mathf.Clamp01(currentEnergy / 100f);
             }
 
             // Vẽ các Icon Buff/Debuff
@@ -653,6 +661,52 @@ namespace RPG.Combat
         }
 
         #endregion
+    }
+
+    /// <summary>
+    /// Component hỗ trợ di chuyển HUD theo mục tiêu và xoay luôn hướng về phía Camera chính (Billboard)
+    /// độc lập hoàn toàn với scale và rotation của mục tiêu đó để tránh bị méo/co giãn UI.
+    /// </summary>
+    public class WorldSpaceHUD : MonoBehaviour
+    {
+        public Transform target;
+        public Vector3 offset = new Vector3(0, 2.3f, 0);
+        private Camera mainCamera;
+
+        void Start()
+        {
+            mainCamera = Camera.main;
+        }
+
+        void LateUpdate()
+        {
+            if (target == null)
+            {
+                Destroy(gameObject);
+                return;
+            }
+
+            // Đồng bộ trạng thái active/deactive với target
+            if (!target.gameObject.activeInHierarchy)
+            {
+                if (gameObject.activeSelf) gameObject.SetActive(false);
+                return;
+            }
+            else
+            {
+                if (!gameObject.activeSelf) gameObject.SetActive(true);
+            }
+
+            // Đồng bộ vị trí
+            transform.position = target.position + offset;
+
+            // Xoay HUD về phía Camera (Billboard)
+            if (mainCamera != null)
+            {
+                transform.LookAt(transform.position + mainCamera.transform.rotation * Vector3.forward,
+                                 mainCamera.transform.rotation * Vector3.up);
+            }
+        }
     }
 
     /// <summary>
