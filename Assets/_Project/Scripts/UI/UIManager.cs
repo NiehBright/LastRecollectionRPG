@@ -36,6 +36,10 @@ namespace RPG.Combat
         // Lưu trữ các nút Ultimate của Party để nhấp nháy khi đầy 100%
         private Dictionary<CombatCharacter, Button> partyUltButtons = new Dictionary<CombatCharacter, Button>();
 
+        // Lưu trữ nút Restart của Màn hình kết thúc để đổi tên động
+        private Button restartButton;
+        private Text restartButtonText;
+
         // Kỹ năng hiện đang chọn chờ bấm mục tiêu
         private SkillData selectedSkill;
         private CombatCharacter currentCaster;
@@ -151,10 +155,11 @@ namespace RPG.Combat
 
                     if (refs.restartButton != null)
                     {
-                        refs.restartButton.onClick.RemoveAllListeners();
-                        refs.restartButton.onClick.AddListener(() => {
-                            SceneManager.LoadScene(SceneManager.GetActiveScene().name);
-                        });
+                        restartButton = refs.restartButton;
+                        restartButtonText = restartButton.GetComponentInChildren<Text>();
+                        
+                        restartButton.onClick.RemoveAllListeners();
+                        restartButton.onClick.AddListener(OnRestartButtonClicked);
                     }
 
                     Debug.Log("[UIManager] Đã tải thành công giao diện từ Prefab!");
@@ -340,11 +345,9 @@ namespace RPG.Combat
             eo.effectDistance = new Vector2(2f, -2f);
 
             // Nút chơi lại
-            Button restartBtn = CreateUIButton(endGO.transform, "Chơi Trận Mới", () => {
-                // Load lại scene
-                SceneManager.LoadScene(SceneManager.GetActiveScene().name);
-            });
-            RectTransform resRect = restartBtn.GetComponent<RectTransform>();
+            restartButton = CreateUIButton(endGO.transform, "Chơi Trận Mới", OnRestartButtonClicked);
+            restartButtonText = restartButton.GetComponentInChildren<Text>();
+            RectTransform resRect = restartButton.GetComponent<RectTransform>();
             resRect.anchorMin = new Vector2(0.5f, 0.4f);
             resRect.anchorMax = new Vector2(0.5f, 0.4f);
             resRect.pivot = new Vector2(0.5f, 0.5f);
@@ -994,6 +997,30 @@ namespace RPG.Combat
             endScreenPanel.gameObject.SetActive(true);
             endScreenText.text = win ? "CHIẾN THẮNG!" : "THẤT BẠI!";
             endScreenText.color = win ? Color.yellow : Color.red;
+
+            if (restartButtonText != null)
+            {
+                if (CombatTeamManager.IsEnteringFromOverworld)
+                {
+                    restartButtonText.text = "Trở Về Thế Giới";
+                }
+                else
+                {
+                    restartButtonText.text = "Chơi Trận Mới";
+                }
+            }
+        }
+
+        private void OnRestartButtonClicked()
+        {
+            if (CombatTeamManager.IsEnteringFromOverworld)
+            {
+                SceneManager.LoadScene("DEMO_WASD");
+            }
+            else
+            {
+                SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+            }
         }
 
         #endregion

@@ -576,6 +576,7 @@ namespace RPG.Combat
             {
                 // Thắng
                 currentState = CombatState.WIN;
+                CombatTeamManager.CombatResult = CombatResultType.WIN;
                 Debug.Log("[CombatManager] CHIẾN THẮNG! Tất cả kẻ địch đã bị tiêu diệt.");
                 OnCombatEnd?.Invoke(true);
                 UIManager.Instance.ShowEndScreen(true);
@@ -586,6 +587,7 @@ namespace RPG.Combat
             {
                 // Thua
                 currentState = CombatState.LOSE;
+                CombatTeamManager.CombatResult = CombatResultType.LOSE;
                 Debug.Log("[CombatManager] THẤT BẠI! Đội hình đồng minh đã gục ngã hoàn toàn.");
                 OnCombatEnd?.Invoke(false);
                 UIManager.Instance.ShowEndScreen(false);

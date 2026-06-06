@@ -64,7 +64,7 @@ namespace BLINK.Controller
         float _lastAttackInputTime = -10f;
         Coroutine _attackCoroutine;
         bool _attackActionEnabledByUs;
-        bool _isTransitioning = false;
+        public bool _isTransitioning = false;
 
         // --- Cached references ---
         CharacterController _cc;
@@ -402,13 +402,25 @@ namespace BLINK.Controller
                 Collider c = _hitBuffer[i];
                 if (c == null || !c.CompareTag("Enemy")) continue;
 
-                var enemy = c.GetComponent<EnemyDummy>();
-
-                if (enemy != null)
+                // Tìm quái vật ở Overworld để mở UI chọn đội hình
+                var monster = c.GetComponentInParent<RPG.Combat.OverworldMonster>();
+                if (monster == null)
                 {
-                    // Đã loại bỏ việc gây sát thương (TakeDamage) ở thế giới thực
+                    var dummy = c.GetComponentInParent<EnemyDummy>();
+                    if (dummy != null)
+                    {
+                        monster = dummy.GetComponent<RPG.Combat.OverworldMonster>();
+                        if (monster == null)
+                        {
+                            monster = dummy.gameObject.AddComponent<RPG.Combat.OverworldMonster>();
+                            monster.uniqueId = $"dummy_{dummy.name}_{Mathf.RoundToInt(dummy.transform.position.x)}_{Mathf.RoundToInt(dummy.transform.position.y)}_{Mathf.RoundToInt(dummy.transform.position.z)}";
+                            monster.detectionRadius = 2.2f;
+                        }
+                    }
+                }
 
-                    // Kích hoạt chuyển cảnh trễ sang TurnBase
+                if (monster != null)
+                {
                     if (!_isTransitioning)
                     {
                         _isTransitioning = true;
@@ -418,9 +430,20 @@ namespace BLINK.Controller
                         if (wasdController != null)
                         {
                             wasdController.movementEnabled = false;
+                            wasdController.cameraEnabled = false;
                         }
 
-                        StartCoroutine(CoTriggerTurnBaseTransition());
+                        // Mở UI Chọn Đội Hình
+                        if (RPG.Combat.CombatTeamSelectionUI.Instance != null)
+                        {
+                            RPG.Combat.CombatTeamSelectionUI.Instance.OpenUI(monster);
+                        }
+                        else
+                        {
+                            GameObject selectionUIGO = new GameObject("[CombatTeamSelectionUI]");
+                            var ui = selectionUIGO.AddComponent<RPG.Combat.CombatTeamSelectionUI>();
+                            ui.OpenUI(monster);
+                        }
                     }
                 }
 

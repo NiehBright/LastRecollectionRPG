@@ -867,11 +867,20 @@ namespace RPG.Combat
                 var col = spawnedShowroomModel.GetComponent<Collider>();
                 if (col != null) Destroy(col);
 
-                // Kích hoạt animation Idle của model thật (nếu có Animator)
+                // Kích hoạt animation Idle của model thật (nếu có Animator và Controller hợp lệ)
                 Animator anim = spawnedShowroomModel.GetComponent<Animator>();
-                if (anim != null)
+                if (anim != null && anim.runtimeAnimatorController != null && anim.layerCount > 0)
                 {
-                    anim.Play("Idle"); // Phát anim Idle
+                    bool hasIdle = false;
+                    for (int i = 0; i < anim.layerCount; i++)
+                    {
+                        if (anim.HasState(i, Animator.StringToHash("Idle")))
+                        {
+                            anim.Play("Idle", i);
+                            hasIdle = true;
+                            break;
+                        }
+                    }
                 }
             }
             else
