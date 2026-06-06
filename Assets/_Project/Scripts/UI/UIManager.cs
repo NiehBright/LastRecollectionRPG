@@ -75,6 +75,7 @@ namespace RPG.Combat
             {
                 CombatManager.Instance.OnTurnStart += HandleTurnStart;
                 CombatManager.Instance.OnCombatStarted += HandleCombatStarted;
+                CombatManager.Instance.OnCombatEnd += HandleCombatEnd;
                 eventsRegistered = true;
                 Debug.Log("[UIManager] Đã đăng ký sự kiện thành công từ CombatManager.");
             }
@@ -85,6 +86,45 @@ namespace RPG.Combat
             UpdateTurnQueueHUD();
             UpdatePartyPanel();
             HideActionPanel();
+
+            if (CombatManager.Instance != null)
+            {
+                foreach (var ally in CombatManager.Instance.allies)
+                {
+                    if (ally != null)
+                    {
+                        ally.OnHPChanged -= HandleAllyHPChanged;
+                        ally.OnHPChanged += HandleAllyHPChanged;
+                        ally.OnEnergyChanged -= HandleAllyEnergyChanged;
+                        ally.OnEnergyChanged += HandleAllyEnergyChanged;
+                    }
+                }
+            }
+        }
+
+        private void HandleAllyHPChanged(CombatCharacter character, float delta, bool isCrit)
+        {
+            UpdatePartyPanel();
+        }
+
+        private void HandleAllyEnergyChanged(CombatCharacter character, float delta)
+        {
+            UpdatePartyPanel();
+        }
+
+        private void HandleCombatEnd(bool isWin)
+        {
+            if (CombatManager.Instance != null)
+            {
+                foreach (var ally in CombatManager.Instance.allies)
+                {
+                    if (ally != null)
+                    {
+                        ally.OnHPChanged -= HandleAllyHPChanged;
+                        ally.OnEnergyChanged -= HandleAllyEnergyChanged;
+                    }
+                }
+            }
         }
 
         private void HandleTurnStart(CombatCharacter activeChar)
@@ -509,119 +549,250 @@ namespace RPG.Combat
                 GameObject cardGO = new GameObject("PartyCard_" + ally.characterData.characterName);
                 cardGO.transform.SetParent(partyPanel);
                 RectTransform cardRect = cardGO.AddComponent<RectTransform>();
-                cardRect.sizeDelta = new Vector2(110f, 120f);
+                
+                // Tăng sizeDelta chiều cao lên để chứa thêm thông tin Recollection
+                cardRect.sizeDelta = new Vector2(115f, 160f);
                 cardRect.localScale = Vector3.one;
                 cardRect.localPosition = Vector3.zero;
                 cardRect.localRotation = Quaternion.identity;
 
                 Image img = cardGO.AddComponent<Image>();
-                img.color = new Color(0.2f, 0.2f, 0.2f, 0.8f);
+                
+                // Đổi màu nền card nếu là Commander
+                if (ally.isCommander)
+                {
+                    Color elemCol = CombatManager.Instance.GetElementColor(ally.characterData.element);
+                    elemCol.a = 0.5f;
+                    img.color = elemCol;
+                }
+                else
+                {
+                    img.color = new Color(0.2f, 0.2f, 0.2f, 0.8f);
+                }
 
                 VerticalLayoutGroup group = cardGO.AddComponent<VerticalLayoutGroup>();
                 group.childAlignment = TextAnchor.UpperLeft;
                 group.padding = new RectOffset(8, 8, 8, 8);
-                group.spacing = 4f;
-                group.childControlHeight = false;
-                group.childControlWidth = false;
+                group.spacing = 3f;
+                group.childControlHeight = true;
+                group.childControlWidth = true;
+                group.childForceExpandHeight = false;
+                group.childForceExpandWidth = false;
 
-                // Tên
+                // Tên nhân vật
                 GameObject nameGO = new GameObject("NameText");
                 nameGO.transform.SetParent(cardGO.transform);
                 RectTransform nameRect = nameGO.AddComponent<RectTransform>();
-                nameRect.sizeDelta = new Vector2(94f, 18f);
+                nameRect.sizeDelta = new Vector2(99f, 16f);
                 nameRect.localScale = Vector3.one;
-                nameRect.localPosition = Vector3.zero;
-                nameRect.localRotation = Quaternion.identity;
-
                 Text nTxt = nameGO.AddComponent<Text>();
                 nTxt.text = ally.characterData.characterName;
                 nTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
                 nTxt.fontSize = 11;
+                nTxt.fontStyle = FontStyle.Bold;
                 nTxt.color = ally.isDead ? Color.gray : Color.white;
+
+                // Vai trò nhân vật (Role)
+                GameObject roleGO = new GameObject("RoleText");
+                roleGO.transform.SetParent(cardGO.transform);
+                RectTransform roleRect = roleGO.AddComponent<RectTransform>();
+                roleRect.sizeDelta = new Vector2(99f, 12f);
+                roleRect.localScale = Vector3.one;
+                Text roleTxt = roleGO.AddComponent<Text>();
+                roleTxt.text = $"{ally.characterData.role} ({ally.characterData.element})";
+                roleTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                roleTxt.fontSize = 8;
+                roleTxt.color = new Color(0.7f, 0.7f, 0.7f);
 
                 // HP
                 GameObject hpGO = new GameObject("HPText");
                 hpGO.transform.SetParent(cardGO.transform);
                 RectTransform hpRect = hpGO.AddComponent<RectTransform>();
-                hpRect.sizeDelta = new Vector2(94f, 16f);
+                hpRect.sizeDelta = new Vector2(99f, 14f);
                 hpRect.localScale = Vector3.one;
-                hpRect.localPosition = Vector3.zero;
-                hpRect.localRotation = Quaternion.identity;
-
                 Text hpTxt = hpGO.AddComponent<Text>();
                 hpTxt.text = $"HP: {ally.currentHP:F0}/{ally.maxHP:F0}";
                 hpTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-                hpTxt.fontSize = 10;
+                hpTxt.fontSize = 9;
                 hpTxt.color = new Color(0.4f, 0.9f, 0.4f);
 
                 // Energy
                 GameObject enGO = new GameObject("EnergyText");
                 enGO.transform.SetParent(cardGO.transform);
                 RectTransform enRect = enGO.AddComponent<RectTransform>();
-                enRect.sizeDelta = new Vector2(94f, 16f);
+                enRect.sizeDelta = new Vector2(99f, 14f);
                 enRect.localScale = Vector3.one;
-                enRect.localPosition = Vector3.zero;
-                enRect.localRotation = Quaternion.identity;
-
                 Text enTxt = enGO.AddComponent<Text>();
                 enTxt.text = $"Energy: {ally.currentEnergy:F0}/100";
                 enTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-                enTxt.fontSize = 10;
+                enTxt.fontSize = 9;
                 enTxt.color = new Color(0.3f, 0.7f, 1f);
 
-                // Nút Ultimate Cắt Lượt
-                GameObject ultBtnGO = new GameObject("UltimateButton");
-                ultBtnGO.transform.SetParent(cardGO.transform);
-                RectTransform utRect = ultBtnGO.AddComponent<RectTransform>();
-                utRect.sizeDelta = new Vector2(94f, 22f);
-                utRect.localScale = Vector3.one;
-                utRect.localPosition = Vector3.zero;
-                utRect.localRotation = Quaternion.identity;
-
-                Image bImg = ultBtnGO.AddComponent<Image>();
-                bImg.color = Color.red;
-
-                Button ultBtn = ultBtnGO.AddComponent<Button>();
-                ultBtn.onClick.AddListener(() => {
-                    CombatManager.Instance.RequestUltimateCast(ally);
-                });
-
-                GameObject btGO = new GameObject("BtnText");
-                btGO.transform.SetParent(ultBtnGO.transform);
-                RectTransform btRect = btGO.AddComponent<RectTransform>();
-                btRect.anchorMin = Vector2.zero;
-                btRect.anchorMax = Vector2.one;
-                btRect.offsetMin = Vector2.zero;
-                btRect.offsetMax = Vector2.zero;
-                btRect.localPosition = Vector3.zero;
-                btRect.localRotation = Quaternion.identity;
-                btRect.localScale = Vector3.one;
-
-                Text btTxt = btGO.AddComponent<Text>();
-                btTxt.text = "ULTIMATE";
-                btTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-                btTxt.fontSize = 9;
-                btTxt.alignment = TextAnchor.MiddleCenter;
-                btTxt.color = Color.white;
-
-                // Bật/tắt nút Ultimate tùy năng lượng
-                if (ally.currentEnergy >= 100f && !ally.isDead)
+                // Vẽ Recollection Section
+                if (ally.isCommander)
                 {
-                    ultBtn.interactable = true;
-                    bImg.color = Color.yellow;
-                    
-                    // Thêm Outline nhấp nháy
-                    Outline bo = ultBtnGO.AddComponent<Outline>();
-                    bo.effectColor = Color.red;
-                    bo.effectDistance = new Vector2(1f, -1f);
+                    // Là Chỉ Huy Recollection đang hoạt động
+                    GameObject recGO = new GameObject("RecActiveText");
+                    recGO.transform.SetParent(cardGO.transform);
+                    RectTransform recRect = recGO.AddComponent<RectTransform>();
+                    recRect.sizeDelta = new Vector2(99f, 14f);
+                    recRect.localScale = Vector3.one;
+                    Text recTxt = recGO.AddComponent<Text>();
+                    recTxt.text = "RECOLLECT ACTIVE";
+                    recTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                    recTxt.fontSize = 8;
+                    recTxt.fontStyle = FontStyle.Bold;
+                    recTxt.color = Color.yellow;
+
+                    // Vẽ Pips đếm ngược
+                    GameObject pipsGO = new GameObject("PipsText");
+                    pipsGO.transform.SetParent(cardGO.transform);
+                    RectTransform pipsRect = pipsGO.AddComponent<RectTransform>();
+                    pipsRect.sizeDelta = new Vector2(99f, 14f);
+                    pipsRect.localScale = Vector3.one;
+                    Text pipsTxt = pipsGO.AddComponent<Text>();
+                    string pipStr = "";
+                    for (int p = 0; p < 5; p++)
+                    {
+                        if (RecollectionManager.Instance != null && p < RecollectionManager.Instance.turnsRemaining)
+                            pipStr += "● ";
+                        else
+                            pipStr += "○ ";
+                    }
+                    pipsTxt.text = $"Lượt: {pipStr}";
+                    pipsTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                    pipsTxt.fontSize = 9;
+                    pipsTxt.color = Color.yellow;
                 }
                 else
                 {
-                    ultBtn.interactable = false;
-                    bImg.color = new Color(0.4f, 0.1f, 0.1f, 0.5f);
+                    // Nhân vật bình thường hàng trước
+                    GameObject recGO = new GameObject("RecGaugeText");
+                    recGO.transform.SetParent(cardGO.transform);
+                    RectTransform recRect = recGO.AddComponent<RectTransform>();
+                    recRect.sizeDelta = new Vector2(99f, 14f);
+                    recRect.localScale = Vector3.one;
+                    Text recTxt = recGO.AddComponent<Text>();
+                    recTxt.text = $"RecGauge: {ally.recollectionGauge:F0}%";
+                    recTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                    recTxt.fontSize = 9;
+                    recTxt.color = Color.magenta;
+
+                    // Nút bấm Recollection khi đầy 100%
+                    GameObject recBtnGO = new GameObject("RecollectionButton");
+                    recBtnGO.transform.SetParent(cardGO.transform);
+                    RectTransform recBtnRect = recBtnGO.AddComponent<RectTransform>();
+                    recBtnRect.sizeDelta = new Vector2(99f, 20f);
+                    recBtnRect.localScale = Vector3.one;
+
+                    LayoutElement le = recBtnGO.AddComponent<LayoutElement>();
+                    le.preferredWidth = 99f;
+                    le.preferredHeight = 20f;
+
+                    Image rbImg = recBtnGO.AddComponent<Image>();
+                    rbImg.color = new Color(0.4f, 0f, 0.4f);
+
+                    Button recBtn = recBtnGO.AddComponent<Button>();
+                    recBtn.onClick.AddListener(() => {
+                        if (RecollectionManager.Instance != null)
+                        {
+                            RecollectionManager.Instance.ActivateRecollection(ally);
+                        }
+                    });
+
+                    GameObject rbtGO = new GameObject("RecBtnText");
+                    rbtGO.transform.SetParent(recBtnGO.transform);
+                    RectTransform rbtRect = rbtGO.AddComponent<RectTransform>();
+                    rbtRect.anchorMin = Vector2.zero;
+                    rbtRect.anchorMax = Vector2.one;
+                    rbtRect.offsetMin = Vector2.zero;
+                    rbtRect.offsetMax = Vector2.zero;
+
+                    Text rbtTxt = rbtGO.AddComponent<Text>();
+                    rbtTxt.text = "RECOLLECT";
+                    rbtTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                    rbtTxt.fontSize = 8;
+                    rbtTxt.alignment = TextAnchor.MiddleCenter;
+                    rbtTxt.color = Color.white;
+
+                    // Bật nút nếu đủ 100% gauge và không có Chỉ huy nào đang hoạt động
+                    bool canRecollect = ally.recollectionGauge >= 100f && 
+                                       !ally.isDead && 
+                                       RecollectionManager.Instance != null && 
+                                       !RecollectionManager.Instance.IsRecollectionActive;
+
+                    if (canRecollect)
+                    {
+                        recBtn.interactable = true;
+                        rbImg.color = Color.magenta;
+                        
+                        Outline rbo = recBtnGO.AddComponent<Outline>();
+                        rbo.effectColor = Color.yellow;
+                        rbo.effectDistance = new Vector2(1f, -1f);
+                    }
+                    else
+                    {
+                        recBtn.interactable = false;
+                        rbImg.color = new Color(0.15f, 0f, 0.15f, 0.5f);
+                        rbtTxt.color = Color.gray;
+                    }
                 }
 
-                partyUltButtons[ally] = ultBtn;
+                // Nút Ultimate Cắt Lượt
+                if (!ally.isCommander)
+                {
+                    GameObject ultBtnGO = new GameObject("UltimateButton");
+                    ultBtnGO.transform.SetParent(cardGO.transform);
+                    RectTransform utRect = ultBtnGO.AddComponent<RectTransform>();
+                    utRect.sizeDelta = new Vector2(99f, 20f);
+                    utRect.localScale = Vector3.one;
+
+                    LayoutElement leUlt = ultBtnGO.AddComponent<LayoutElement>();
+                    leUlt.preferredWidth = 99f;
+                    leUlt.preferredHeight = 20f;
+
+                    Image bImg = ultBtnGO.AddComponent<Image>();
+                    bImg.color = Color.red;
+
+                    Button ultBtn = ultBtnGO.AddComponent<Button>();
+                    ultBtn.onClick.AddListener(() => {
+                        CombatManager.Instance.RequestUltimateCast(ally);
+                    });
+
+                    GameObject btGO = new GameObject("BtnText");
+                    btGO.transform.SetParent(ultBtnGO.transform);
+                    RectTransform btRect = btGO.AddComponent<RectTransform>();
+                    btRect.anchorMin = Vector2.zero;
+                    btRect.anchorMax = Vector2.one;
+                    btRect.offsetMin = Vector2.zero;
+                    btRect.offsetMax = Vector2.zero;
+
+                    Text btTxt = btGO.AddComponent<Text>();
+                    btTxt.text = "ULTIMATE";
+                    btTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                    btTxt.fontSize = 8;
+                    btTxt.alignment = TextAnchor.MiddleCenter;
+                    btTxt.color = Color.white;
+
+                    if (ally.currentEnergy >= 100f && !ally.isDead)
+                    {
+                        ultBtn.interactable = true;
+                        bImg.color = Color.yellow;
+                        btTxt.color = Color.black;
+                        
+                        Outline bo = ultBtnGO.AddComponent<Outline>();
+                        bo.effectColor = Color.red;
+                        bo.effectDistance = new Vector2(1f, -1f);
+                    }
+                    else
+                    {
+                        ultBtn.interactable = false;
+                        bImg.color = new Color(0.4f, 0.1f, 0.1f, 0.5f);
+                        btTxt.color = Color.gray;
+                    }
+
+                    partyUltButtons[ally] = ultBtn;
+                }
             }
         }
 
@@ -643,11 +814,32 @@ namespace RPG.Combat
             selectedSkill = null;
             HideAllTargetSelectors();
 
-            // Cập nhật nhãn và trạng thái CD các nút kỹ năng
-            
+            // Reset màu nền các nút về mặc định (Trắng)
+            if (basicButton != null) basicButton.GetComponent<Image>().color = Color.white;
+            if (specialButton != null) specialButton.GetComponent<Image>().color = Color.white;
+            if (ultimateButton != null) ultimateButton.GetComponent<Image>().color = Color.white;
+
+            // Kiểm tra trạng thái Recollection để đổi màu viền kỹ năng cường hóa
+            EnhancedSkillResult basicEnh = null;
+            EnhancedSkillResult specialEnh = null;
+
+            if (RecollectionManager.Instance != null && RecollectionManager.Instance.IsRecollectionActive && character.isAlly && !character.isCommander)
+            {
+                basicEnh = SkillEnhancementResolver.Resolve(RecollectionManager.Instance.activeCommander.characterData.element, character.characterData.element, SkillType.BASIC);
+                specialEnh = SkillEnhancementResolver.Resolve(RecollectionManager.Instance.activeCommander.characterData.element, character.characterData.element, SkillType.SPECIAL);
+            }
+
             // Skill 1: Basic Attack (CD 0)
             basicButton.interactable = true;
-            basicText.text = $"{character.characterData.skillBasic.skillName} (CD: 0)";
+            if (basicEnh != null)
+            {
+                basicButton.GetComponent<Image>().color = CombatManager.Instance.GetElementColor(RecollectionManager.Instance.activeCommander.characterData.element);
+                basicText.text = $"{character.characterData.skillBasic.skillName} [CƯỜNG HÓA]";
+            }
+            else
+            {
+                basicText.text = $"{character.characterData.skillBasic.skillName} (CD: 0)";
+            }
 
             // Skill 2: Special (CD 2-3)
             if (character.characterData.skillSpecial != null)
@@ -660,7 +852,15 @@ namespace RPG.Combat
                 else
                 {
                     specialButton.interactable = true;
-                    specialText.text = $"{character.characterData.skillSpecial.skillName} (CD: {character.characterData.skillSpecial.cooldown})";
+                    if (specialEnh != null)
+                    {
+                        specialButton.GetComponent<Image>().color = CombatManager.Instance.GetElementColor(RecollectionManager.Instance.activeCommander.characterData.element);
+                        specialText.text = $"{character.characterData.skillSpecial.skillName} [CƯỜNG HÓA]";
+                    }
+                    else
+                    {
+                        specialText.text = $"{character.characterData.skillSpecial.skillName} (CD: {character.characterData.skillSpecial.cooldown})";
+                    }
                 }
             }
             else
@@ -722,6 +922,20 @@ namespace RPG.Combat
 
             selectedSkill = skill;
             descriptionText.text = $"<b>{skill.skillName}</b>\n{skill.description}\nSát thương: ATK * {skill.damageMultiplier:F1} | Loại mục tiêu: {skill.targetType}";
+
+            // Bổ sung mô tả cường hóa nếu có Recollection active
+            if (RecollectionManager.Instance != null && RecollectionManager.Instance.IsRecollectionActive && currentCaster.isAlly && !currentCaster.isCommander)
+            {
+                EnhancedSkillResult enhancement = SkillEnhancementResolver.Resolve(
+                    RecollectionManager.Instance.activeCommander.characterData.element,
+                    currentCaster.characterData.element,
+                    type
+                );
+                if (enhancement != null)
+                {
+                    descriptionText.text += $"\n\n<color=magenta><b>[CƯỜNG HÓA - {enhancement.enhancementName}]:</b> {enhancement.description}</color>";
+                }
+            }
 
             // Ẩn các target cũ
             HideAllTargetSelectors();

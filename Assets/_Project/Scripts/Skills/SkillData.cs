@@ -26,5 +26,7 @@ namespace RPG.Combat
         [Header("Visual & Hiệu ứng hình ảnh")]
         public Color skillColor = Color.white;
         public float animDuration = 1.0f; // Thời gian chuyển động tấn công
+        public AnimationClip skillClip; // Clip hoạt ảnh tương ứng với kỹ năng này
+        public GameObject skillImpactVFX; // Hiệu ứng va chạm/đòn đánh khi trúng mục tiêu
     }
 }

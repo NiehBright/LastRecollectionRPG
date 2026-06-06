@@ -82,16 +82,57 @@ namespace RPG.Combat
 
             foreach (var effect in activeCopy)
             {
-                // 1. Kích hoạt hiệu ứng Damage Over Time (DOT) nếu có
-                if (effect.data.effectType == EffectType.DAMAGE_OVER_TIME)
+                // 1. Kích hoạt hiệu ứng Damage Over Time (DOT) / BURN / POISON nếu có
+                if (effect.data.effectType == EffectType.DAMAGE_OVER_TIME ||
+                    effect.data.effectType == EffectType.BURN ||
+                    effect.data.effectType == EffectType.POISON)
                 {
-                    float dotDamage = effect.caster.GetModifiedATK() * effect.data.modifierValue;
+                    float modifier = effect.data.modifierValue;
+                    
+                    // Xử lý Inferno Poison (gấp đôi sát thương nếu bị cả Poison + Burn)
+                    if (effect.data.effectType == EffectType.POISON && 
+                        character.activeEffects.Exists(e => e.data.effectType == EffectType.BURN))
+                    {
+                        modifier *= 2f;
+                    }
+
+                    float dotDamage = effect.caster.GetModifiedATK() * modifier;
                     dotDamage = Mathf.Round(dotDamage);
+
+                    ElementType dotElement = ElementType.Physical;
+                    Color textColor = Color.gray;
+                    string label = "DOT";
+
+                    if (effect.data.effectType == EffectType.BURN)
+                    {
+                        dotElement = ElementType.Fire;
+                        textColor = new Color(1.0f, 0.3f, 0.1f);
+                        label = "BURN";
+                    }
+                    else if (effect.data.effectType == EffectType.POISON)
+                    {
+                        dotElement = ElementType.Nature;
+                        textColor = new Color(0.2f, 0.8f, 0.3f);
+                        label = "POISON";
+                    }
+
+                    Debug.Log($"[EffectManager] {label} '{effect.data.effectName}' gây {dotDamage} sát thương lên {character.characterData.characterName}.");
                     
-                    Debug.Log($"[EffectManager] DOT '{effect.data.effectName}' gây {dotDamage} sát thương lên {character.characterData.characterName}.");
-                    
-                    // Gây sát thương không chí mạng
-                    character.TakeDamage(dotDamage, ElementType.Physical, false);
+                    // Gây sát thương
+                    character.TakeDamage(dotDamage, dotElement, effect.caster, false);
+                    FloatingText.Instance.SpawnText(character.transform.position + Vector3.up * 1.5f, $"{dotDamage} ({label})", textColor);
+
+                    // Xử lý Electro-Burn cuối lượt hoặc đầu lượt nổ điện sét
+                    if (effect.data.effectType == EffectType.BURN && RecollectionManager.Instance != null && RecollectionManager.Instance.IsRecollectionActive)
+                    {
+                        if (RecollectionManager.Instance.activeCommander.characterData.element == ElementType.Lightning &&
+                            effect.caster.characterData.element == ElementType.Fire)
+                        {
+                            float electroDmg = Mathf.Round(dotDamage * 0.5f);
+                            character.TakeDamage(electroDmg, ElementType.Lightning, effect.caster, false);
+                            FloatingText.Instance.SpawnText(character.transform.position + Vector3.up * 2.0f, $"{electroDmg} (Electro-Burn!)", Color.yellow);
+                        }
+                    }
                 }
 
                 // 2. Kiểm tra các hiệu ứng hạn chế hành động (Stun/Freeze)
@@ -100,6 +141,20 @@ namespace RPG.Combat
                     isSkippingTurn = true;
                     string statusType = effect.data.effectType == EffectType.FREEZE ? "Đóng băng" : "Choáng";
                     Debug.Log($"[EffectManager] {character.characterData.characterName} đang bị {statusType}, bỏ qua lượt này.");
+                }
+
+                // Kiểm tra Stun ngẫu nhiên của Static Poison
+                if (effect.data.effectType == EffectType.POISON && RecollectionManager.Instance != null && RecollectionManager.Instance.IsRecollectionActive)
+                {
+                    if (RecollectionManager.Instance.activeCommander.characterData.element == ElementType.Lightning &&
+                        effect.caster.characterData.element == ElementType.Nature)
+                    {
+                        if (UnityEngine.Random.value < 0.30f)
+                        {
+                            isSkippingTurn = true;
+                            FloatingText.Instance.SpawnText(character.transform.position + Vector3.up * 2.0f, "STATIC SHOCK STUN!", Color.yellow, 1.2f);
+                        }
+                    }
                 }
 
                 // 3. Trừ số lượt hoạt động còn lại

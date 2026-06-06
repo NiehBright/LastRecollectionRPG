@@ -35,6 +35,10 @@ namespace RPG.Combat
         public bool isDead = false;
         public bool isGuarding = false;
 
+        [Header("Chỉ số Recollection")]
+        public float recollectionGauge = 0f;
+        public bool isCommander = false;
+
         [Header("Danh sách hiệu ứng")]
         public List<ActiveEffect> activeEffects = new List<ActiveEffect>();
 
@@ -57,6 +61,13 @@ namespace RPG.Combat
         public event Action<CombatCharacter, float> OnEnergyChanged;
         public event Action<CombatCharacter> OnDeath;
 
+        public void AddRecollectionGauge(float amount)
+        {
+            if (isDead || isCommander || characterData == null || !characterData.isRecollectionUnlocked) return;
+            recollectionGauge = Mathf.Clamp(recollectionGauge + amount, 0f, 100f);
+            UpdateFloatingHUD();
+        }
+
         public void Initialize(CharacterData data, bool isAllySide)
         {
             characterData = data;
@@ -67,6 +78,7 @@ namespace RPG.Combat
 
             // Khởi tạo năng lượng ngẫu nhiên từ 30% đến 50%
             currentEnergy = UnityEngine.Random.Range(30f, 50f);
+            recollectionGauge = UnityEngine.Random.Range(20f, 40f); // Tích sẵn 1 phần để người dùng dễ test
             isDead = false;
             isGuarding = false;
             specialSkillCDRemaining = 0;
@@ -79,6 +91,69 @@ namespace RPG.Combat
 
             // Tạo Giao diện nổi trên đầu
             CreateFloatingHUD();
+
+            Animator anim = GetComponentInChildren<Animator>();
+            if (anim != null)
+            {
+                // Nạp các animation tùy chỉnh từ CharacterData thay cho Animator Controller gốc
+                ApplyRuntimeAnimationOverrides(anim);
+
+                // Thêm receiver để bắt sự kiện đòn đánh của hoạt ảnh và nuốt cảnh báo
+                if (anim.gameObject.GetComponent<AnimationEventReceiver>() == null)
+                {
+                    anim.gameObject.AddComponent<AnimationEventReceiver>();
+                }
+                
+                if (anim.runtimeAnimatorController != null && anim.layerCount > 0)
+                {
+                    if (anim.HasState(0, Animator.StringToHash("Idle")))
+                    {
+                        anim.Play("Idle");
+                    }
+                }
+            }
+        }
+
+        private void ApplyRuntimeAnimationOverrides(Animator animator)
+        {
+            if (animator == null || characterData == null || animator.runtimeAnimatorController == null) return;
+
+            RuntimeAnimatorController baseController = animator.runtimeAnimatorController;
+            if (baseController is AnimatorOverrideController overrideCtrl)
+            {
+                baseController = overrideCtrl.runtimeAnimatorController;
+            }
+
+            AnimatorOverrideController newOverrideController = new AnimatorOverrideController(baseController);
+            var overrides = new List<KeyValuePair<AnimationClip, AnimationClip>>();
+            var originalClips = newOverrideController.animationClips;
+
+            foreach (var originalClip in originalClips)
+            {
+                if (originalClip == null) continue;
+                string clipName = originalClip.name.ToLower();
+                AnimationClip targetClip = null;
+
+                if (clipName.Contains("idle") && characterData.idleClip != null) targetClip = characterData.idleClip;
+                else if (clipName.Contains("run") && characterData.runClip != null) targetClip = characterData.runClip;
+                else if ((clipName.Contains("attack1") || clipName.Contains("basic") || clipName.Contains("attack_1") || clipName.Contains("combo01")) && characterData.skillBasic != null && characterData.skillBasic.skillClip != null) targetClip = characterData.skillBasic.skillClip;
+                else if ((clipName.Contains("attack2") || clipName.Contains("special") || clipName.Contains("attack_2") || clipName.Contains("combo02")) && characterData.skillSpecial != null && characterData.skillSpecial.skillClip != null) targetClip = characterData.skillSpecial.skillClip;
+                else if ((clipName.Contains("ultimate") || clipName.Contains("ult") || clipName.Contains("skill03")) && characterData.skillUltimate != null && characterData.skillUltimate.skillClip != null) targetClip = characterData.skillUltimate.skillClip;
+                else if ((clipName.Contains("defend") || clipName.Contains("guard") || clipName.Contains("block")) && characterData.defendClip != null) targetClip = characterData.defendClip;
+                else if ((clipName.Contains("hit") || clipName.Contains("damage") || clipName.Contains("hurt")) && characterData.hitClip != null) targetClip = characterData.hitClip;
+                else if ((clipName.Contains("die") || clipName.Contains("dead") || clipName.Contains("death")) && characterData.dieClip != null) targetClip = characterData.dieClip;
+
+                if (targetClip != null)
+                {
+                    overrides.Add(new KeyValuePair<AnimationClip, AnimationClip>(originalClip, targetClip));
+                }
+            }
+
+            if (overrides.Count > 0)
+            {
+                newOverrideController.ApplyOverrides(overrides);
+                animator.runtimeAnimatorController = newOverrideController;
+            }
         }
 
         private void CreateProceduralModel()
@@ -167,6 +242,23 @@ namespace RPG.Combat
             }
         }
 
+        private static Sprite cachedWhiteSprite;
+        private Sprite GetDefaultWhiteSprite()
+        {
+            if (cachedWhiteSprite != null) return cachedWhiteSprite;
+            Texture2D tex = new Texture2D(2, 2);
+            for (int y = 0; y < 2; y++)
+            {
+                for (int x = 0; x < 2; x++)
+                {
+                    tex.SetPixel(x, y, Color.white);
+                }
+            }
+            tex.Apply();
+            cachedWhiteSprite = Sprite.Create(tex, new Rect(0, 0, 2, 2), new Vector2(0.5f, 0.5f));
+            return cachedWhiteSprite;
+        }
+
         private void CreateFloatingHUD()
         {
             // Tạo Canvas thế giới (Không SetParent vào transform để tránh bị ảnh hưởng bởi scale bất thường của nhân vật/quái)
@@ -178,8 +270,7 @@ namespace RPG.Combat
             hudCanvas.worldCamera = Camera.main; // Gán camera để raycast chính xác
             canvasGO.AddComponent<GraphicRaycaster>(); // Bắt buộc phải có để click được nút World Space Canvas
             
-            CanvasScaler scaler = canvasGO.AddComponent<CanvasScaler>();
-            scaler.dynamicPixelsPerUnit = 10f;
+            // Xóa CanvasScaler để tránh co giãn biến dạng UI do tỷ lệ khung hình màn hình thay đổi
 
             RectTransform rect = hudCanvas.GetComponent<RectTransform>();
             rect.sizeDelta = new Vector2(150f, 40f);
@@ -193,73 +284,61 @@ namespace RPG.Combat
 
             // Tạo Panel nền cho HP Bar
             GameObject hpBgGO = new GameObject("HPBar_Bg");
-            hpBgGO.transform.SetParent(canvasGO.transform);
-            hpBgGO.transform.localPosition = new Vector3(0f, 10f, 0f);
+            hpBgGO.transform.SetParent(canvasGO.transform, false);
             RectTransform hpBgRect = hpBgGO.AddComponent<RectTransform>();
             hpBgRect.sizeDelta = new Vector2(120f, 12f);
             hpBgRect.localScale = Vector3.one;
-            hpBgRect.localPosition = new Vector3(0f, 10f, 0f);
+            hpBgRect.anchoredPosition = new Vector2(0f, 10f);
             hpBgRect.localRotation = Quaternion.identity;
             Image hpBgImg = hpBgGO.AddComponent<Image>();
             hpBgImg.color = new Color(0.2f, 0.2f, 0.2f, 0.8f);
 
             // Tạo HP Fill
             GameObject hpFillGO = new GameObject("HPBar_Fill");
-            hpFillGO.transform.SetParent(hpBgGO.transform);
-            hpFillGO.transform.localPosition = Vector3.zero;
+            hpFillGO.transform.SetParent(hpBgGO.transform, false);
             RectTransform hpFillRect = hpFillGO.AddComponent<RectTransform>();
             hpFillRect.anchorMin = Vector2.zero;
             hpFillRect.anchorMax = Vector2.one;
             hpFillRect.offsetMin = Vector2.zero;
             hpFillRect.offsetMax = Vector2.zero;
-            hpFillRect.localPosition = Vector3.zero;
             hpFillRect.localScale = Vector3.one;
             hpFillRect.localRotation = Quaternion.identity;
             
             hpBarFill = hpFillGO.AddComponent<Image>();
-            hpBarFill.type = Image.Type.Filled;
-            hpBarFill.fillMethod = Image.FillMethod.Horizontal;
-            hpBarFill.fillOrigin = (int)Image.OriginHorizontal.Left;
             hpBarFill.color = isAlly ? new Color(0.1f, 0.8f, 0.1f) : new Color(0.9f, 0.1f, 0.1f);
 
             // Tạo Energy Bar
             GameObject energyBgGO = new GameObject("EnergyBar_Bg");
-            energyBgGO.transform.SetParent(canvasGO.transform);
-            energyBgGO.transform.localPosition = new Vector3(0f, -2f, 0f);
+            energyBgGO.transform.SetParent(canvasGO.transform, false);
             RectTransform enBgRect = energyBgGO.AddComponent<RectTransform>();
             enBgRect.sizeDelta = new Vector2(120f, 8f);
             enBgRect.localScale = Vector3.one;
-            enBgRect.localPosition = new Vector3(0f, -2f, 0f);
+            enBgRect.anchoredPosition = new Vector2(0f, -2f);
             enBgRect.localRotation = Quaternion.identity;
             Image enBgImg = energyBgGO.AddComponent<Image>();
             enBgImg.color = new Color(0.2f, 0.2f, 0.2f, 0.8f);
 
+            // Tạo Energy Fill
             GameObject energyFillGO = new GameObject("EnergyBar_Fill");
-            energyFillGO.transform.SetParent(energyBgGO.transform);
-            energyFillGO.transform.localPosition = Vector3.zero;
+            energyFillGO.transform.SetParent(energyBgGO.transform, false);
             RectTransform enFillRect = energyFillGO.AddComponent<RectTransform>();
             enFillRect.anchorMin = Vector2.zero;
             enFillRect.anchorMax = Vector2.one;
             enFillRect.offsetMin = Vector2.zero;
             enFillRect.offsetMax = Vector2.zero;
-            enFillRect.localPosition = Vector3.zero;
             enFillRect.localScale = Vector3.one;
             enFillRect.localRotation = Quaternion.identity;
             
             energyBarFill = energyFillGO.AddComponent<Image>();
-            energyBarFill.type = Image.Type.Filled;
-            energyBarFill.fillMethod = Image.FillMethod.Horizontal;
-            energyBarFill.fillOrigin = (int)Image.OriginHorizontal.Left;
             energyBarFill.color = new Color(0.1f, 0.6f, 0.9f);
 
             // Tạo Container chứa các buff/debuff
             GameObject buffsGO = new GameObject("BuffContainer");
-            buffsGO.transform.SetParent(canvasGO.transform);
-            buffsGO.transform.localPosition = new Vector3(0f, -15f, 0f);
+            buffsGO.transform.SetParent(canvasGO.transform, false);
             RectTransform buffsRect = buffsGO.AddComponent<RectTransform>();
             buffsRect.sizeDelta = new Vector2(120f, 15f);
             buffsRect.localScale = Vector3.one;
-            buffsRect.localPosition = new Vector3(0f, -15f, 0f);
+            buffsRect.anchoredPosition = new Vector2(0f, -15f);
             buffsRect.localRotation = Quaternion.identity;
 
             HorizontalLayoutGroup layout = buffsGO.AddComponent<HorizontalLayoutGroup>();
@@ -277,11 +356,21 @@ namespace RPG.Combat
         {
             if (hpBarFill != null)
             {
-                hpBarFill.fillAmount = maxHP > 0f ? Mathf.Clamp01(currentHP / maxHP) : 0f;
+                float fillAmount = maxHP > 0f ? Mathf.Clamp01(currentHP / maxHP) : 0f;
+                RectTransform rt = hpBarFill.GetComponent<RectTransform>();
+                rt.anchorMin = Vector2.zero;
+                rt.anchorMax = new Vector2(fillAmount, 1f);
+                rt.offsetMin = Vector2.zero;
+                rt.offsetMax = Vector2.zero;
             }
             if (energyBarFill != null)
             {
-                energyBarFill.fillAmount = Mathf.Clamp01(currentEnergy / 100f);
+                float fillAmount = Mathf.Clamp01(currentEnergy / 100f);
+                RectTransform rt = energyBarFill.GetComponent<RectTransform>();
+                rt.anchorMin = Vector2.zero;
+                rt.anchorMax = new Vector2(fillAmount, 1f);
+                rt.offsetMin = Vector2.zero;
+                rt.offsetMax = Vector2.zero;
             }
 
             // Vẽ các Icon Buff/Debuff
@@ -419,29 +508,97 @@ namespace RPG.Combat
 
         #region Tương Tác Gameplay
 
-        public void TakeDamage(float damage, ElementType element, bool isCrit = false)
+        public void TakeDamage(float damage, ElementType element, CombatCharacter attacker = null, bool isCrit = false)
         {
             if (isDead) return;
 
-            currentHP -= damage;
+            float finalDamage = damage;
+
+            // 1. Xử lý hiệu ứng Shield (nếu có)
+            ActiveEffect shieldEffect = activeEffects.Find(e => e.data.effectType == EffectType.SHIELD);
+            if (shieldEffect != null && shieldEffect.data.modifierValue > 0)
+            {
+                if (shieldEffect.data.modifierValue >= finalDamage)
+                {
+                    shieldEffect.data.modifierValue -= finalDamage;
+                    finalDamage = 0f;
+                }
+                else
+                {
+                    finalDamage -= shieldEffect.data.modifierValue;
+                    shieldEffect.data.modifierValue = 0f;
+                    activeEffects.Remove(shieldEffect);
+                }
+
+                FloatingText.Instance.SpawnText(transform.position + Vector3.up * 1.8f, "SHIELD BLOCK!", Color.blue, 1.0f);
+            }
+
+            // 2. Trừ HP thực tế
+            currentHP -= finalDamage;
             if (currentHP <= 0f)
             {
                 currentHP = 0f;
                 isDead = true;
             }
 
+            // 3. Phản sát thương (Reflect) nếu có và không phải phản đòn của phản đòn
+            if (attacker != null && attacker != this && !attacker.isDead && finalDamage > 0)
+            {
+                float totalReflectVal = 0f;
+                ElementType reflectElement = ElementType.Physical;
+
+                foreach (var effect in activeEffects)
+                {
+                    if (effect.data.effectType == EffectType.REFLECT)
+                    {
+                        totalReflectVal += effect.data.modifierValue;
+                        if (effect.data.effectColor == Color.red) reflectElement = ElementType.Fire;
+                        else if (effect.data.effectColor == Color.yellow) reflectElement = ElementType.Lightning;
+                        else if (effect.data.effectColor == Color.cyan) reflectElement = ElementType.Ice;
+                    }
+                }
+
+                if (totalReflectVal > 0)
+                {
+                    float reflectedDamage = finalDamage * totalReflectVal;
+                    reflectedDamage = Mathf.Round(reflectedDamage);
+                    if (reflectedDamage > 0)
+                    {
+                        attacker.TakeDamage(reflectedDamage, reflectElement, null, false);
+                        FloatingText.Instance.SpawnText(attacker.transform.position + Vector3.up * 1.5f, $"{reflectedDamage} (Phản đòn!)", Color.magenta, 1.0f);
+                    }
+                }
+            }
+
             // Bị đánh hồi năng lượng (+10-20%)
             float energyGained = UnityEngine.Random.Range(10f, 20f);
             AddEnergy(energyGained);
 
+            // Bị đánh tích lũy Recollection Gauge (+12)
+            AddRecollectionGauge(12f);
+
             UpdateFloatingHUD();
-            OnHPChanged?.Invoke(this, -damage, isCrit);
+            OnHPChanged?.Invoke(this, -finalDamage, isCrit);
 
             // Animation bị đánh
             PlayHitShake();
+            PlayHitAnimation();
 
             if (isDead)
             {
+                // Khi đồng đội chết, tăng gauge cho các đồng đội còn sống khác
+                if (isAlly && CombatManager.Instance != null)
+                {
+                    foreach (var ally in CombatManager.Instance.GetAliveAllies())
+                    {
+                        if (ally != this)
+                        {
+                            ally.AddRecollectionGauge(25f);
+                            FloatingText.Instance.SpawnText(ally.transform.position + Vector3.up * 1.5f, "Ý chí thức tỉnh +25!", Color.magenta, 1.0f);
+                        }
+                    }
+                }
+
                 Die();
             }
         }
@@ -497,6 +654,11 @@ namespace RPG.Combat
             if (skill.skillType == SkillType.SPECIAL)
             {
                 specialSkillCDRemaining = skill.cooldown;
+                AddRecollectionGauge(15f); // Special: +15
+            }
+            else if (skill.skillType == SkillType.BASIC)
+            {
+                AddRecollectionGauge(8f); // Basic: +8
             }
         }
 
@@ -509,6 +671,15 @@ namespace RPG.Combat
             }
             // Hủy trạng thái Guard của lượt trước
             isGuarding = false;
+
+            Animator anim = GetComponentInChildren<Animator>();
+            if (anim != null && anim.runtimeAnimatorController != null && anim.layerCount > 0)
+            {
+                if (anim.HasState(0, Animator.StringToHash("Idle")))
+                {
+                    anim.CrossFadeInFixedTime("Idle", 0.15f);
+                }
+            }
         }
 
         public void ShowTurnIndicator(bool show)
@@ -547,21 +718,78 @@ namespace RPG.Combat
             OnDeath?.Invoke(this);
             PlayDeathAnimation();
         }
-
         #endregion
 
         #region Procedural Animations
 
-        public void PlayAttackAnimation(Vector3 targetPosition, Action onImpact, Action onComplete)
+        public void PlayHitAnimation()
         {
-            if (activeAnimCoroutine != null) StopCoroutine(activeAnimCoroutine);
-            activeAnimCoroutine = StartCoroutine(CoAttackAnimation(targetPosition, onImpact, onComplete));
+            Animator anim = GetComponentInChildren<Animator>();
+            if (anim != null && anim.runtimeAnimatorController != null && anim.layerCount > 0)
+            {
+                if (anim.HasState(0, Animator.StringToHash("Hit")))
+                {
+                    anim.CrossFadeInFixedTime("Hit", 0.1f);
+                    StartCoroutine(CoReturnToIdleAfterHit(0.5f));
+                }
+            }
         }
 
-        private IEnumerator CoAttackAnimation(Vector3 targetPosition, Action onImpact, Action onComplete)
+        private IEnumerator CoReturnToIdleAfterHit(float delay)
+        {
+            yield return new WaitForSeconds(delay);
+            if (!isDead && activeAnimCoroutine == null)
+            {
+                Animator anim = GetComponentInChildren<Animator>();
+                if (anim != null && anim.runtimeAnimatorController != null && anim.layerCount > 0)
+                {
+                    string endState = isGuarding ? "Defend" : "Idle";
+                    if (anim.HasState(0, Animator.StringToHash(endState)))
+                    {
+                        anim.CrossFadeInFixedTime(endState, 0.15f);
+                    }
+                }
+            }
+        }
+
+        public void PlayAttackAnimation(Vector3 targetPosition, Action onImpact, Action onComplete)
+        {
+            PlayAttackAnimation(targetPosition, null, onImpact, onComplete);
+        }
+
+        public void PlayAttackAnimation(Vector3 targetPosition, SkillData skill, Action onImpact, Action onComplete)
+        {
+            if (activeAnimCoroutine != null) StopCoroutine(activeAnimCoroutine);
+            activeAnimCoroutine = StartCoroutine(CoAttackAnimation(targetPosition, skill, onImpact, onComplete));
+        }
+
+        private Action pendingImpactCallback;
+        private bool hasReceivedHitEvent = false;
+
+        public void OnAnimationHitEventReceived()
+        {
+            if (pendingImpactCallback != null && !hasReceivedHitEvent)
+            {
+                hasReceivedHitEvent = true;
+                var callback = pendingImpactCallback;
+                pendingImpactCallback = null;
+                callback?.Invoke();
+            }
+        }
+
+        private IEnumerator CoAttackAnimation(Vector3 targetPosition, SkillData skill, Action onImpact, Action onComplete)
         {
             Vector3 startPos = originalPosition;
             
+            Animator anim = GetComponentInChildren<Animator>();
+            if (anim != null && anim.runtimeAnimatorController != null && anim.layerCount > 0)
+            {
+                if (anim.HasState(0, Animator.StringToHash("Run")))
+                {
+                    anim.CrossFadeInFixedTime("Run", 0.1f);
+                }
+            }
+
             // 1. Dash tới mục tiêu (0.2s)
             float elapsed = 0f;
             float duration = 0.2f;
@@ -576,13 +804,71 @@ namespace RPG.Combat
             }
             transform.position = strikePos;
 
-            // 2. Gây sát thương tại điểm va chạm
-            onImpact?.Invoke();
+            // Thiết lập callback nhận sự kiện đòn đánh
+            hasReceivedHitEvent = false;
+            pendingImpactCallback = onImpact;
 
-            // 3. Đợi một chút tại điểm va chạm (0.15s)
-            yield return new WaitForSeconds(0.15f);
+            // 2. Chạy hoạt ảnh tấn công
+            if (anim != null && anim.runtimeAnimatorController != null && anim.layerCount > 0)
+            {
+                string stateName = "Attack1";
+                if (skill != null)
+                {
+                    if (skill.skillType == SkillType.SPECIAL) stateName = "Attack2";
+                    else if (skill.skillType == SkillType.ULTIMATE) stateName = "Ultimate";
+                }
+                if (anim.HasState(0, Animator.StringToHash(stateName)))
+                {
+                    anim.CrossFadeInFixedTime(stateName, 0.1f);
+                }
+            }
+
+            // Đợi một chút để chuyển cảnh hoạt ảnh kết thúc
+            yield return new WaitForSeconds(0.1f);
+
+            // Xác định thời lượng clip hoạt ảnh thực tế
+            float animLength = 0.5f; // Fallback mặc định
+            if (anim != null)
+            {
+                var stateInfo = anim.GetCurrentAnimatorStateInfo(0);
+                animLength = stateInfo.length;
+            }
+
+            // Chờ nhận sự kiện OnAttackHit từ AnimationEventReceiver hoặc tự động kích hoạt sau một thời gian
+            float elapsedWait = 0f;
+            float hitThreshold = animLength * 0.5f; // Gây sát thương ở 50% thời lượng nếu không có event
+            
+            while (!hasReceivedHitEvent && elapsedWait < animLength)
+            {
+                elapsedWait += Time.deltaTime;
+                if (elapsedWait >= hitThreshold && !hasReceivedHitEvent)
+                {
+                    OnAnimationHitEventReceived();
+                }
+                yield return null;
+            }
+
+            // Đảm bảo đòn đánh đã kích hoạt sát thương
+            if (!hasReceivedHitEvent)
+            {
+                OnAnimationHitEventReceived();
+            }
+
+            // Đợi cho đến khi hoạt ảnh chạy hết hoàn toàn trước khi lùi về
+            if (elapsedWait < animLength)
+            {
+                yield return new WaitForSeconds(animLength - elapsedWait);
+            }
 
             // 4. Lùi về vị trí cũ (0.3s)
+            if (anim != null && anim.runtimeAnimatorController != null && anim.layerCount > 0)
+            {
+                if (anim.HasState(0, Animator.StringToHash("Run")))
+                {
+                    anim.CrossFadeInFixedTime("Run", 0.1f);
+                }
+            }
+
             elapsed = 0f;
             duration = 0.3f;
             while (elapsed < duration)
@@ -593,8 +879,17 @@ namespace RPG.Combat
                 yield return null;
             }
             transform.position = startPos;
-            activeAnimCoroutine = null;
 
+            if (anim != null && anim.runtimeAnimatorController != null && anim.layerCount > 0)
+            {
+                string endState = isGuarding ? "Defend" : "Idle";
+                if (anim.HasState(0, Animator.StringToHash(endState)))
+                {
+                    anim.CrossFadeInFixedTime(endState, 0.15f);
+                }
+            }
+
+            activeAnimCoroutine = null;
             onComplete?.Invoke();
         }
 
@@ -639,6 +934,16 @@ namespace RPG.Combat
 
         private IEnumerator CoDeathAnimation()
         {
+            Animator anim = GetComponentInChildren<Animator>();
+            if (anim != null && anim.runtimeAnimatorController != null && anim.layerCount > 0)
+            {
+                if (anim.HasState(0, Animator.StringToHash("Die")))
+                {
+                    anim.CrossFadeInFixedTime("Die", 0.15f);
+                    yield return new WaitForSeconds(1.5f);
+                }
+            }
+
             float duration = 1.0f;
             float elapsed = 0f;
             Vector3 startPos = transform.position;
@@ -727,6 +1032,34 @@ namespace RPG.Combat
             {
                 transform.LookAt(transform.position + mainCamera.transform.rotation * Vector3.forward,
                                  mainCamera.transform.rotation * Vector3.up);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Receiver lắng nghe và tiêu thụ các AnimationEvent (như OnAttackHit) của các animation pack (Blink, Suriyun,...)
+    /// nhằm tránh lỗi cảnh báo "no receiver" và đồng bộ hóa đòn đánh với thời điểm va chạm chuẩn xác.
+    /// </summary>
+    public class AnimationEventReceiver : MonoBehaviour
+    {
+        private CombatCharacter character;
+
+        void Start()
+        {
+            character = GetComponentInParent<CombatCharacter>();
+        }
+
+        public void OnAttackHit() => ForwardHit();
+        public void OnAttackHitEvent() => ForwardHit();
+        public void OnHit() => ForwardHit();
+        public void OnDefaultHit() => ForwardHit();
+        public void Hit() => ForwardHit();
+
+        private void ForwardHit()
+        {
+            if (character != null)
+            {
+                character.OnAnimationHitEventReceived();
             }
         }
     }

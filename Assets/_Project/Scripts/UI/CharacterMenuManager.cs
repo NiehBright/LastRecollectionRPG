@@ -37,6 +37,11 @@ namespace RPG.Combat
         public Vector3 showroomPosition = new Vector3(1000f, -1000f, 1000f);
         public float modelScale = 1.0f;
 
+        [Header("Showroom Visuals")]
+        public Color groundColor = new Color(0.12f, 0.15f, 0.2f);
+        public Color cameraBackgroundColor = new Color(0.06f, 0.08f, 0.1f);
+        public GameObject showroomEnvironmentPrefab; // Kéo thả prefab môi trường showroom tùy chọn
+
         private bool isMenuOpen = false;
         private GameObject spawnedUIInstance;
         private CharacterMenuUIReferences uiRefs;
@@ -54,9 +59,22 @@ namespace RPG.Combat
         {
             if (Instance == null)
             {
+#if UNITY_2023_1_OR_NEWER
+                Instance = FindFirstObjectByType<CharacterMenuManager>();
+#else
+                Instance = FindObjectOfType<CharacterMenuManager>();
+#endif
+            }
+
+            if (Instance == null)
+            {
                 GameObject go = new GameObject("[CharacterMenuManager]");
                 Instance = go.AddComponent<CharacterMenuManager>();
                 DontDestroyOnLoad(go);
+            }
+            else
+            {
+                DontDestroyOnLoad(Instance.gameObject);
             }
         }
 
@@ -785,17 +803,27 @@ namespace RPG.Combat
             showroomRoot.transform.position = showroomPosition;
 
             // 2. Tạo bệ đứng (Ground) cho model
-            GameObject ground = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            ground.name = "ShowroomGround";
-            ground.transform.SetParent(showroomRoot.transform);
-            ground.transform.localPosition = new Vector3(0f, -0.1f, 0f);
-            ground.transform.localScale = new Vector3(3f, 0.1f, 3f);
-            Destroy(ground.GetComponent<Collider>()); // Xóa collider
+            if (showroomEnvironmentPrefab != null)
+            {
+                GameObject env = Instantiate(showroomEnvironmentPrefab, showroomRoot.transform);
+                env.transform.localPosition = Vector3.zero;
+                env.transform.localRotation = Quaternion.identity;
+                env.transform.localScale = Vector3.one;
+            }
+            else
+            {
+                GameObject ground = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                ground.name = "ShowroomGround";
+                ground.transform.SetParent(showroomRoot.transform);
+                ground.transform.localPosition = new Vector3(0f, -0.1f, 0f);
+                ground.transform.localScale = new Vector3(3f, 0.1f, 3f);
+                Destroy(ground.GetComponent<Collider>()); // Xóa collider
 
-            Renderer gr = ground.GetComponent<Renderer>();
-            Material gm = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            gm.color = new Color(0.12f, 0.15f, 0.2f);
-            gr.material = gm;
+                Renderer gr = ground.GetComponent<Renderer>();
+                Material gm = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+                gm.color = groundColor;
+                gr.material = gm;
+            }
 
             // 3. Tạo Showroom Camera
             GameObject camGO = new GameObject("ShowroomCamera");
@@ -805,7 +833,7 @@ namespace RPG.Combat
 
             showroomCamera = camGO.AddComponent<Camera>();
             showroomCamera.clearFlags = CameraClearFlags.Color;
-            showroomCamera.backgroundColor = new Color(0.06f, 0.08f, 0.1f);
+            showroomCamera.backgroundColor = cameraBackgroundColor;
             showroomCamera.fieldOfView = 35f;
             showroomCamera.nearClipPlane = 0.1f;
             showroomCamera.farClipPlane = 10f;
@@ -834,6 +862,22 @@ namespace RPG.Combat
             showroomLight.color = new Color(0.9f, 0.95f, 1.0f);
         }
 
+        private void AdjustModelRotationForShowroom(GameObject model)
+        {
+            if (model == null) return;
+            Transform modelRoot = model.transform.Find("ModelRoot");
+            if (modelRoot != null)
+            {
+                float yRot = modelRoot.localEulerAngles.y;
+                if (Mathf.Abs(yRot - 180f) < 5f)
+                {
+                    model.transform.localRotation = Quaternion.Euler(0f, 0f, 0f);
+                    return;
+                }
+            }
+            model.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+        }
+
         private void SpawnShowroomModel(CharacterMenuData data)
         {
             // Phá hủy model cũ trong showroom
@@ -850,35 +894,49 @@ namespace RPG.Combat
             {
                 spawnedShowroomModel = Instantiate(data.modelPrefab, showroomRoot.transform);
                 spawnedShowroomModel.transform.localPosition = Vector3.zero;
-                spawnedShowroomModel.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+                AdjustModelRotationForShowroom(spawnedShowroomModel);
                 spawnedShowroomModel.transform.localScale = Vector3.one * modelScale;
 
-                // Tắt các script di chuyển và va chạm nếu có trên prefab để tránh lỗi showroom
-                var wasd = spawnedShowroomModel.GetComponent<TopDownWASDController>();
-                if (wasd != null) Destroy(wasd);
-                var combat = spawnedShowroomModel.GetComponent<CombatController>();
-                if (combat != null) Destroy(combat);
-                var cc = spawnedShowroomModel.GetComponent<CombatCharacter>();
-                if (cc != null) Destroy(cc);
-                var characterController = spawnedShowroomModel.GetComponent<CharacterController>();
-                if (characterController != null) Destroy(characterController);
-                var rb = spawnedShowroomModel.GetComponent<Rigidbody>();
-                if (rb != null) Destroy(rb);
-                var col = spawnedShowroomModel.GetComponent<Collider>();
-                if (col != null) Destroy(col);
+                // Tắt các script di chuyển và va chạm trên toàn bộ hierarchy để tránh lỗi showroom và rơi tự do
+                foreach (var wasd in spawnedShowroomModel.GetComponentsInChildren<TopDownWASDController>()) { wasd.enabled = false; Destroy(wasd); }
+                foreach (var combat in spawnedShowroomModel.GetComponentsInChildren<CombatController>()) { combat.enabled = false; Destroy(combat); }
+                foreach (var cc in spawnedShowroomModel.GetComponentsInChildren<CombatCharacter>()) { cc.enabled = false; Destroy(cc); }
+                foreach (var characterController in spawnedShowroomModel.GetComponentsInChildren<CharacterController>()) { characterController.enabled = false; Destroy(characterController); }
+                foreach (var rb in spawnedShowroomModel.GetComponentsInChildren<Rigidbody>())
+                {
+                    rb.isKinematic = true;
+                    rb.useGravity = false;
+                    rb.linearVelocity = Vector3.zero;
+                    rb.angularVelocity = Vector3.zero;
+                    Destroy(rb);
+                }
+                foreach (var col in spawnedShowroomModel.GetComponentsInChildren<Collider>()) { col.enabled = false; Destroy(col); }
 
                 // Kích hoạt animation Idle của model thật (nếu có Animator và Controller hợp lệ)
-                Animator anim = spawnedShowroomModel.GetComponent<Animator>();
-                if (anim != null && anim.runtimeAnimatorController != null && anim.layerCount > 0)
+                Animator anim = spawnedShowroomModel.GetComponentInChildren<Animator>();
+                if (anim != null)
                 {
-                    bool hasIdle = false;
-                    for (int i = 0; i < anim.layerCount; i++)
+                    // Tải CharacterData để lấy các animation tùy chỉnh
+                    CharacterData charData = Resources.Load<CharacterData>($"Characters/{data.characterName}_Data");
+                    if (charData == null) charData = Resources.Load<CharacterData>($"Characters/{data.characterName}");
+                    if (charData == null) charData = Resources.Load<CharacterData>($"{data.characterName}_Data");
+
+                    if (charData != null)
                     {
-                        if (anim.HasState(i, Animator.StringToHash("Idle")))
+                        ApplyRuntimeAnimationOverrides(anim, charData);
+                    }
+
+                    if (anim.runtimeAnimatorController != null && anim.layerCount > 0)
+                    {
+                        bool hasIdle = false;
+                        for (int i = 0; i < anim.layerCount; i++)
                         {
-                            anim.Play("Idle", i);
-                            hasIdle = true;
-                            break;
+                            if (anim.HasState(i, Animator.StringToHash("Idle")))
+                            {
+                                anim.Play("Idle", i);
+                                hasIdle = true;
+                                break;
+                            }
                         }
                     }
                 }
@@ -889,7 +947,7 @@ namespace RPG.Combat
                 spawnedShowroomModel = new GameObject("ShowroomModel_" + data.characterName);
                 spawnedShowroomModel.transform.SetParent(showroomRoot.transform);
                 spawnedShowroomModel.transform.localPosition = Vector3.zero;
-                spawnedShowroomModel.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+                spawnedShowroomModel.transform.localRotation = Quaternion.Euler(0f, 180f, 0f); // Đối diện camera
                 spawnedShowroomModel.transform.localScale = Vector3.one * modelScale;
 
                 GameObject body = GameObject.CreatePrimitive(data.element == ElementType.Nature ? PrimitiveType.Cylinder : PrimitiveType.Capsule);
@@ -947,6 +1005,48 @@ namespace RPG.Combat
 
             showroomCamera = null;
             showroomLight = null;
+        }
+
+        private void ApplyRuntimeAnimationOverrides(Animator animator, CharacterData characterData)
+        {
+            if (animator == null || characterData == null || animator.runtimeAnimatorController == null) return;
+
+            RuntimeAnimatorController baseController = animator.runtimeAnimatorController;
+            if (baseController is AnimatorOverrideController overrideCtrl)
+            {
+                baseController = overrideCtrl.runtimeAnimatorController;
+            }
+
+            AnimatorOverrideController newOverrideController = new AnimatorOverrideController(baseController);
+            var overrides = new List<KeyValuePair<AnimationClip, AnimationClip>>();
+            var originalClips = newOverrideController.animationClips;
+
+            foreach (var originalClip in originalClips)
+            {
+                if (originalClip == null) continue;
+                string clipName = originalClip.name.ToLower();
+                AnimationClip targetClip = null;
+
+                if (clipName.Contains("idle") && characterData.idleClip != null) targetClip = characterData.idleClip;
+                else if (clipName.Contains("run") && characterData.runClip != null) targetClip = characterData.runClip;
+                else if ((clipName.Contains("attack1") || clipName.Contains("basic") || clipName.Contains("attack_1") || clipName.Contains("combo01")) && characterData.skillBasic != null && characterData.skillBasic.skillClip != null) targetClip = characterData.skillBasic.skillClip;
+                else if ((clipName.Contains("attack2") || clipName.Contains("special") || clipName.Contains("attack_2") || clipName.Contains("combo02")) && characterData.skillSpecial != null && characterData.skillSpecial.skillClip != null) targetClip = characterData.skillSpecial.skillClip;
+                else if ((clipName.Contains("ultimate") || clipName.Contains("ult") || clipName.Contains("skill03")) && characterData.skillUltimate != null && characterData.skillUltimate.skillClip != null) targetClip = characterData.skillUltimate.skillClip;
+                else if ((clipName.Contains("defend") || clipName.Contains("guard") || clipName.Contains("block")) && characterData.defendClip != null) targetClip = characterData.defendClip;
+                else if ((clipName.Contains("hit") || clipName.Contains("damage") || clipName.Contains("hurt")) && characterData.hitClip != null) targetClip = characterData.hitClip;
+                else if ((clipName.Contains("die") || clipName.Contains("dead") || clipName.Contains("death")) && characterData.dieClip != null) targetClip = characterData.dieClip;
+
+                if (targetClip != null)
+                {
+                    overrides.Add(new KeyValuePair<AnimationClip, AnimationClip>(originalClip, targetClip));
+                }
+            }
+
+            if (overrides.Count > 0)
+            {
+                newOverrideController.ApplyOverrides(overrides);
+                animator.runtimeAnimatorController = newOverrideController;
+            }
         }
 
         #endregion
