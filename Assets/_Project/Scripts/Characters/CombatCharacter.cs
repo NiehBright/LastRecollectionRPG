@@ -50,6 +50,7 @@ namespace RPG.Combat
         private Transform buffIconContainer;
         private GameObject buffIconPrefab; // Sẽ tạo động hoặc load
         private GameObject turnIndicator;
+        private GameObject spawnedTurnVFX;
 
         // Events
         public event Action<CombatCharacter, float, bool> OnHPChanged; // character, delta, isCrit
@@ -508,11 +509,33 @@ namespace RPG.Combat
             {
                 turnIndicator.SetActive(show);
             }
+
+            if (show)
+            {
+                if (characterData != null && characterData.turnVFXPrefab != null && spawnedTurnVFX == null)
+                {
+                    spawnedTurnVFX = Instantiate(characterData.turnVFXPrefab, transform.position, Quaternion.identity, transform);
+                }
+            }
+            else
+            {
+                HideTurnVFX();
+            }
+        }
+
+        public void HideTurnVFX()
+        {
+            if (spawnedTurnVFX != null)
+            {
+                Destroy(spawnedTurnVFX);
+                spawnedTurnVFX = null;
+            }
         }
 
         private void Die()
         {
             isDead = true;
+            HideTurnVFX();
             OnDeath?.Invoke(this);
             PlayDeathAnimation();
         }

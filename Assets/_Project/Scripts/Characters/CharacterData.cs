@@ -28,5 +28,15 @@ namespace RPG.Combat
         public SkillData skillBasic;
         public SkillData skillSpecial;
         public SkillData skillUltimate;
+
+        [Header("Hiệu ứng kỹ năng (VFX)")]
+        [Tooltip("Hiệu ứng dưới chân khi tới lượt đi (ở trạng thái đứng yên)")]
+        public GameObject turnVFXPrefab;
+        [Tooltip("Hiệu ứng dưới chân đối thủ khi thi triển Đòn đánh thường (BASIC)")]
+        public GameObject basicAttackImpactVFX;
+        [Tooltip("Hiệu ứng dưới chân đối thủ khi thi triển Kỹ năng đặc biệt (SPECIAL)")]
+        public GameObject specialAttackImpactVFX;
+        [Tooltip("Hiệu ứng khi thi triển Chiêu cuối (ULTIMATE)")]
+        public GameObject ultimateVFX;
     }
 }

@@ -80,116 +80,157 @@ namespace RPG.Combat
 
             characters = new List<CharacterMenuData>();
 
-            // 1. Fire Warrior
-            var c1 = new CharacterMenuData
+            // 1. Tự động tải tất cả các nhân vật được xây dựng từ Tool trong Resources/Characters
+            CharacterData[] customChars = Resources.LoadAll<CharacterData>("Characters");
+            if (customChars != null && customChars.Length > 0)
             {
-                characterName = "Fire Warrior",
-                element = ElementType.Fire,
-                themeColor = new Color(0.9f, 0.2f, 0.1f),
-                maxHP = 800f,
-                atk = 120f,
-                def = 60f,
-                speed = 110f,
-                critRate = 0.20f,
-                critDmg = 1.50f,
-                description = "Chiến binh mang sức mạnh ngọn lửa thiêng, có khả năng gây sát thương thiêu đốt liên tục lên mục tiêu đơn lẻ.",
-                skills = new List<string> { "Chém Thường (Basic)", "Hỏa Long Tiễn (Special)", "Hỏa Tiễn Hủy Diệt (Ultimate)" }
-            };
-            // Thử tự tìm prefab Kazuko làm model cho Fire Warrior nếu có
-            c1.modelPrefab = Resources.Load<GameObject>("ThirdParty/Suriyun/Kazuko/Prefab/Kazuko");
-            if (c1.modelPrefab == null)
-            {
-                // Thử load ở các đường dẫn khác
-#if UNITY_EDITOR
-                c1.modelPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/ThirdParty/Suriyun/Kazuko/Prefab/Kazuko.prefab");
-#endif
+                foreach (var data in customChars)
+                {
+                    if (data == null) continue;
+
+                    var cmd = new CharacterMenuData
+                    {
+                        characterName = data.characterName,
+                        element = data.element,
+                        themeColor = data.themeColor,
+                        maxHP = data.baseMaxHP,
+                        atk = data.baseATK,
+                        def = data.baseDEF,
+                        speed = data.baseSpeed,
+                        critRate = data.baseCritRate,
+                        critDmg = data.baseCritDMG,
+                        description = data.skillBasic != null ? data.skillBasic.description : "Không có mô tả nhân vật.",
+                        skills = new List<string>()
+                    };
+
+                    if (data.skillBasic != null) cmd.skills.Add(data.skillBasic.skillName);
+                    if (data.skillSpecial != null) cmd.skills.Add(data.skillSpecial.skillName);
+                    if (data.skillUltimate != null) cmd.skills.Add(data.skillUltimate.skillName);
+
+                    // Tự động tìm mô hình Prefab tương ứng
+                    cmd.modelPrefab = Resources.Load<GameObject>($"Prefabs/Characters/{data.characterName}");
+                    if (cmd.modelPrefab == null)
+                    {
+                        // Thử tìm trong thư mục Prefabs nói chung nếu không nằm trong thư mục con
+                        cmd.modelPrefab = Resources.Load<GameObject>($"Prefabs/{data.characterName}");
+                    }
+
+                    characters.Add(cmd);
+                }
             }
-            characters.Add(c1);
 
-            // 2. Ice Mage
-            var c2 = new CharacterMenuData
+            // 2. Nếu không tìm thấy nhân vật tùy chỉnh nào, nạp danh sách nhân vật mặc định
+            if (characters.Count == 0)
             {
-                characterName = "Ice Mage",
-                element = ElementType.Ice,
-                themeColor = new Color(0.2f, 0.6f, 0.9f),
-                maxHP = 600f,
-                atk = 100f,
-                def = 40f,
-                speed = 95f,
-                critRate = 0.10f,
-                critDmg = 1.60f,
-                description = "Pháp sư băng giá kiểm soát trận đấu, có khả năng làm giảm tốc độ toàn bộ kẻ địch bằng bão tuyết sương giá.",
-                skills = new List<string> { "Đạn Băng (Basic)", "Sương Băng Chậm Chạp (Special)", "Tuyệt Đối Băng Phong (Ultimate)" }
-            };
-            characters.Add(c2);
+                // 1. Fire Warrior
+                var c1 = new CharacterMenuData
+                {
+                    characterName = "Fire Warrior",
+                    element = ElementType.Fire,
+                    themeColor = new Color(0.9f, 0.2f, 0.1f),
+                    maxHP = 800f,
+                    atk = 120f,
+                    def = 60f,
+                    speed = 110f,
+                    critRate = 0.20f,
+                    critDmg = 1.50f,
+                    description = "Chiến binh mang sức mạnh ngọn lửa thiêng, có khả năng gây sát thương thiêu đốt liên tục lên mục tiêu đơn lẻ.",
+                    skills = new List<string> { "Chém Thường (Basic)", "Hỏa Long Tiễn (Special)", "Hỏa Tiễn Hủy Diệt (Ultimate)" }
+                };
+                c1.modelPrefab = Resources.Load<GameObject>("ThirdParty/Suriyun/Kazuko/Prefab/Kazuko");
+                if (c1.modelPrefab == null)
+                {
+#if UNITY_EDITOR
+                    c1.modelPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/ThirdParty/Suriyun/Kazuko/Prefab/Kazuko.prefab");
+#endif
+                }
+                characters.Add(c1);
 
-            // 3. Storm Rogue
-            var c3 = new CharacterMenuData
-            {
-                characterName = "Storm Rogue",
-                element = ElementType.Lightning,
-                themeColor = new Color(0.9f, 0.8f, 0.1f),
-                maxHP = 700f,
-                atk = 140f,
-                def = 50f,
-                speed = 125f,
-                critRate = 0.30f,
-                critDmg = 1.80f,
-                description = "Sát thủ chớp nhoáng với tốc độ sấm sét, tập trung gây sát thương bạo kích cực lớn và làm choáng kẻ địch.",
-                skills = new List<string> { "Chích Điện (Basic)", "Tia Sét Quá Tải (Special)", "Thiên Lôi Triệu Hồi (Ultimate)" }
-            };
-            characters.Add(c3);
+                // 2. Ice Mage
+                var c2 = new CharacterMenuData
+                {
+                    characterName = "Ice Mage",
+                    element = ElementType.Ice,
+                    themeColor = new Color(0.2f, 0.6f, 0.9f),
+                    maxHP = 600f,
+                    atk = 100f,
+                    def = 40f,
+                    speed = 95f,
+                    critRate = 0.10f,
+                    critDmg = 1.60f,
+                    description = "Pháp sư băng giá kiểm soát trận đấu, có khả năng làm giảm tốc độ toàn bộ kẻ địch bằng bão tuyết sương giá.",
+                    skills = new List<string> { "Đạn Băng (Basic)", "Sương Băng Chậm Chạp (Special)", "Tuyệt Đối Băng Phong (Ultimate)" }
+                };
+                characters.Add(c2);
 
-            // 4. Nature Druid
-            var c4 = new CharacterMenuData
-            {
-                characterName = "Nature Druid",
-                element = ElementType.Nature,
-                themeColor = new Color(0.2f, 0.8f, 0.3f),
-                maxHP = 1000f,
-                atk = 80f,
-                def = 70f,
-                speed = 100f,
-                critRate = 0.05f,
-                critDmg = 1.20f,
-                description = "Hộ vệ của tự nhiên, tập trung phòng thủ kiên cố, hồi phục sinh mệnh và gia tăng sức tấn công cho toàn đội.",
-                skills = new List<string> { "Lá Cây Sắc Nhọn (Basic)", "Phục Hồi Sinh Mệnh (Special)", "Rừng Già Trỗi Dậy (Ultimate)" }
-            };
-            characters.Add(c4);
+                // 3. Storm Rogue
+                var c3 = new CharacterMenuData
+                {
+                    characterName = "Storm Rogue",
+                    element = ElementType.Lightning,
+                    themeColor = new Color(0.9f, 0.8f, 0.1f),
+                    maxHP = 700f,
+                    atk = 140f,
+                    def = 50f,
+                    speed = 125f,
+                    critRate = 0.30f,
+                    critDmg = 1.80f,
+                    description = "Sát thủ chớp nhoáng với tốc độ sấm sét, tập trung gây sát thương bạo kích cực lớn và làm choáng kẻ địch.",
+                    skills = new List<string> { "Chích Điện (Basic)", "Tia Sét Quá Tải (Special)", "Thiên Lôi Triệu Hồi (Ultimate)" }
+                };
+                characters.Add(c3);
 
-            // 5. Shadow Assassin
-            var c5 = new CharacterMenuData
-            {
-                characterName = "Shadow Assassin",
-                element = ElementType.Physical,
-                themeColor = new Color(0.6f, 0.2f, 0.8f),
-                maxHP = 650f,
-                atk = 150f,
-                def = 45f,
-                speed = 130f,
-                critRate = 0.35f,
-                critDmg = 1.95f,
-                description = "Sát thủ bóng đêm di chuyển xuất quỷ nhập thần, tập trung vào đòn chí mạng cực mạnh từ phía sau kẻ địch.",
-                skills = new List<string> { "Đâm Lén (Basic)", "Ẩn Mình Nháy Mắt (Special)", "Vũ Điệu Bóng Đêm (Ultimate)" }
-            };
-            characters.Add(c5);
+                // 4. Nature Druid
+                var c4 = new CharacterMenuData
+                {
+                    characterName = "Nature Druid",
+                    element = ElementType.Nature,
+                    themeColor = new Color(0.2f, 0.8f, 0.3f),
+                    maxHP = 1000f,
+                    atk = 80f,
+                    def = 70f,
+                    speed = 100f,
+                    critRate = 0.05f,
+                    critDmg = 1.20f,
+                    description = "Hộ vệ của tự nhiên, tập trung phòng thủ kiên cố, hồi phục sinh mệnh và gia tăng sức tấn công cho toàn đội.",
+                    skills = new List<string> { "Lá Cây Sắc Nhọn (Basic)", "Phục Hồi Sinh Mệnh (Special)", "Rừng Già Trỗi Dậy (Ultimate)" }
+                };
+                characters.Add(c4);
 
-            // 6. Flame Paladin
-            var c6 = new CharacterMenuData
-            {
-                characterName = "Flame Paladin",
-                element = ElementType.Fire,
-                themeColor = new Color(0.7f, 0.3f, 0.2f),
-                maxHP = 1200f,
-                atk = 90f,
-                def = 90f,
-                speed = 85f,
-                critRate = 0.08f,
-                critDmg = 1.30f,
-                description = "Kỵ sĩ thánh lửa mang giáp nặng kiên cố, thu hút sự chú ý của kẻ địch và tạo khiên lửa bảo vệ đồng đội.",
-                skills = new List<string> { "Chém Khiên (Basic)", "Khiên Lửa Hộ Thể (Special)", "Thần Hỏa Phán Quyết (Ultimate)" }
-            };
-            characters.Add(c6);
+                // 5. Shadow Assassin
+                var c5 = new CharacterMenuData
+                {
+                    characterName = "Shadow Assassin",
+                    element = ElementType.Physical,
+                    themeColor = new Color(0.6f, 0.2f, 0.8f),
+                    maxHP = 650f,
+                    atk = 150f,
+                    def = 45f,
+                    speed = 130f,
+                    critRate = 0.35f,
+                    critDmg = 1.95f,
+                    description = "Sát thủ bóng đêm di chuyển xuất quỷ nhập thần, tập trung vào đòn chí mạng cực mạnh từ phía sau kẻ địch.",
+                    skills = new List<string> { "Đâm Lén (Basic)", "Ẩn Mình Nháy Mắt (Special)", "Vũ Điệu Bóng Đêm (Ultimate)" }
+                };
+                characters.Add(c5);
+
+                // 6. Flame Paladin
+                var c6 = new CharacterMenuData
+                {
+                    characterName = "Flame Paladin",
+                    element = ElementType.Fire,
+                    themeColor = new Color(0.7f, 0.3f, 0.2f),
+                    maxHP = 1200f,
+                    atk = 90f,
+                    def = 90f,
+                    speed = 85f,
+                    critRate = 0.08f,
+                    critDmg = 1.30f,
+                    description = "Kỵ sĩ thánh lửa mang giáp nặng kiên cố, thu hút sự chú ý của kẻ địch và tạo khiên lửa bảo vệ đồng đội.",
+                    skills = new List<string> { "Chém Khiên (Basic)", "Khiên Lửa Hộ Thể (Special)", "Thần Hỏa Phán Quyết (Ultimate)" }
+                };
+                characters.Add(c6);
+            }
         }
 
         private void Update()
