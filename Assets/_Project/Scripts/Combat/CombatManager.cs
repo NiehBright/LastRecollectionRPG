@@ -306,6 +306,7 @@ namespace RPG.Combat
         {
             currentState = CombatState.BUSY;
             UIManager.Instance.HideActionPanel();
+            attacker.HideTurnVFX(); // Ẩn hiệu ứng lượt đi khi bắt đầu hành động
 
             OnSkillCast?.Invoke(attacker, skill, targets);
             Debug.Log($"[CombatManager] {attacker.characterData.characterName} dùng '{skill.skillName}' lên {targets.Count} mục tiêu.");
@@ -333,8 +334,37 @@ namespace RPG.Combat
             attacker.PlayAttackAnimation(targetPos, 
                 // Khi chạm mục tiêu (Impact)
                 () => {
-                    // Tạo hiệu ứng hạt VFX
-                    ProceduralVFX.Instance.SpawnVFX(skill, targetPos);
+                    bool spawnedCustomVFX = false;
+
+                    // Lấy VFX thích hợp từ characterData của attacker
+                    GameObject customVFXPrefab = null;
+                    if (attacker.characterData != null)
+                    {
+                        if (skill.skillType == SkillType.BASIC)
+                            customVFXPrefab = attacker.characterData.basicAttackImpactVFX;
+                        else if (skill.skillType == SkillType.SPECIAL)
+                            customVFXPrefab = attacker.characterData.specialAttackImpactVFX;
+                        else if (skill.skillType == SkillType.ULTIMATE)
+                            customVFXPrefab = attacker.characterData.ultimateVFX;
+                    }
+
+                    if (customVFXPrefab != null)
+                    {
+                        foreach (var target in targets)
+                        {
+                            if (target.isDead) continue;
+                            GameObject vfx = Instantiate(customVFXPrefab, target.transform.position, Quaternion.identity);
+                            // Tự hủy sau 3 giây để tránh rác bộ nhớ
+                            Destroy(vfx, 3f);
+                        }
+                        spawnedCustomVFX = true;
+                    }
+
+                    if (!spawnedCustomVFX)
+                    {
+                        // Tạo hiệu ứng hạt mặc định
+                        ProceduralVFX.Instance.SpawnVFX(skill, targetPos);
+                    }
 
                     // Giải quyết sát thương và buff lên từng mục tiêu
                     foreach (var target in targets)
@@ -389,6 +419,7 @@ namespace RPG.Combat
         {
             currentState = CombatState.BUSY;
             UIManager.Instance.HideActionPanel();
+            character.HideTurnVFX(); // Ẩn hiệu ứng lượt đi khi bắt đầu phòng thủ
 
             character.isGuarding = true;
             Debug.Log($"[CombatManager] {character.characterData.characterName} vào trạng thái phòng thủ (Guard).");
