@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b21f55d93c663fd4cada74085816f256, type: 3}
+  m_Name: Hoshi_Data
+  m_EditorClassIdentifier: Assembly-CSharp::RPG.Combat.CharacterData
+  characterId: Hoshi_Test
+  characterName: Hoshi
+  element: 4
+  avatar: {fileID: 0}
+  themeColor: {r: 1, g: 0, b: 0, a: 1}
+  baseMaxHP: 800
+  baseATK: 120
+  baseDEF: 60
+  baseSpeed: 110
+  baseCritRate: 0.2
+  baseCritDMG: 1.5
+  skillBasic: {fileID: 11400000, guid: f1c9f05cad9de3f46bb801122fe142a0, type: 2}
+  skillSpecial: {fileID: 11400000, guid: 3a336eba8d5459d4ba53a38f0bf291ee, type: 2}
+  skillUltimate: {fileID: 11400000, guid: 6c869dff154ffa24fabba887e9a620f6, type: 2}
+  turnVFXPrefab: {fileID: 0}
+  basicAttackImpactVFX: {fileID: 0}
+  specialAttackImpactVFX: {fileID: 0}
+  ultimateVFX: {fileID: 0}

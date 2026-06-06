@@ -9,8 +9,10 @@ namespace RPG.Combat
         public string characterId;
         public string characterName;
         public ElementType element;
+        public CharacterRole role;
         public Sprite avatar;
         public Color themeColor = Color.white; // Màu đại diện cho mô hình 3D procedural
+        public bool isRecollectionUnlocked = true;
 
         [Header("Chỉ số cơ bản")]
         public float baseMaxHP = 500f;
@@ -32,11 +34,12 @@ namespace RPG.Combat
         [Header("Hiệu ứng kỹ năng (VFX)")]
         [Tooltip("Hiệu ứng dưới chân khi tới lượt đi (ở trạng thái đứng yên)")]
         public GameObject turnVFXPrefab;
-        [Tooltip("Hiệu ứng dưới chân đối thủ khi thi triển Đòn đánh thường (BASIC)")]
-        public GameObject basicAttackImpactVFX;
-        [Tooltip("Hiệu ứng dưới chân đối thủ khi thi triển Kỹ năng đặc biệt (SPECIAL)")]
-        public GameObject specialAttackImpactVFX;
-        [Tooltip("Hiệu ứng khi thi triển Chiêu cuối (ULTIMATE)")]
-        public GameObject ultimateVFX;
+
+        [Header("Hoạt ảnh (Animations)")]
+        public AnimationClip idleClip;
+        public AnimationClip runClip;
+        public AnimationClip defendClip;
+        public AnimationClip hitClip;
+        public AnimationClip dieClip;
     }
 }

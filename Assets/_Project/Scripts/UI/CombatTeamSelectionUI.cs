@@ -17,7 +17,7 @@ namespace RPG.Combat
         private int activeSelectingSlot = -1;
 
         // UI GameObjects
-        private GameObject canvasGO;
+        public GameObject canvasGO;
         private Canvas selectionCanvas;
         private RawImage showroomRawImage;
         
@@ -31,8 +31,14 @@ namespace RPG.Combat
         // UI References
         private Text[] slotNameTexts = new Text[4];
         private Text[] slotElementTexts = new Text[4];
+        private Button[] slotButtons = new Button[4];
         private GameObject characterListPanel;
         private Transform listContentContainer;
+
+        [Header("Showroom Visuals")]
+        public Color groundColor = new Color(0.06f, 0.08f, 0.12f);
+        public Color cameraBackgroundColor = new Color(0.05f, 0.06f, 0.08f);
+        public GameObject showroomEnvironmentPrefab; // Kéo thả prefab môi trường showroom tùy chọn
 
         private void Awake()
         {
@@ -83,11 +89,52 @@ namespace RPG.Combat
             // Đảm bảo có EventSystem
             EnsureEventSystem();
 
+            // Thử tải UI từ Prefab trong Resources
+            GameObject uiPrefab = Resources.Load<GameObject>("Prefabs/CombatTeamSelectionUI");
+            if (uiPrefab != null)
+            {
+                canvasGO = Instantiate(uiPrefab);
+                DontDestroyOnLoad(canvasGO);
+                
+                var refs = canvasGO.GetComponent<CombatTeamSelectionUIReferences>();
+                if (refs != null)
+                {
+                    showroomRawImage = refs.showroomRawImage;
+                    slotNameTexts = refs.slotNameTexts;
+                    slotElementTexts = refs.slotElementTexts;
+                    characterListPanel = refs.characterListPanel;
+                    listContentContainer = refs.listContentContainer;
+                    
+                    for (int i = 0; i < 4; i++)
+                    {
+                        int index = i;
+                        if (refs.slotButtons[i] != null)
+                        {
+                            refs.slotButtons[index].onClick.RemoveAllListeners();
+                            refs.slotButtons[index].onClick.AddListener(() => OpenCharacterSelectionList(index));
+                        }
+                    }
+                    
+                    if (refs.btnStart != null)
+                    {
+                        refs.btnStart.onClick.RemoveAllListeners();
+                        refs.btnStart.onClick.AddListener(StartCombatBattle);
+                    }
+                    if (refs.btnCancel != null)
+                    {
+                        refs.btnCancel.onClick.RemoveAllListeners();
+                        refs.btnCancel.onClick.AddListener(CloseUI);
+                    }
+                }
+            }
+            else
+            {
+                // Fallback tạo giao diện động bằng code
+                CreateUIElements();
+            }
+
             // 1. Tạo môi trường 3D Showroom
             Setup3DShowroom();
-
-            // 2. Tạo Canvas giao diện
-            CreateUIElements();
 
             // 3. Render các mô hình nhân vật
             UpdateShowroomModels();
@@ -127,7 +174,7 @@ namespace RPG.Combat
             }
         }
 
-        private void EnsureEventSystem()
+        public void EnsureEventSystem()
         {
             if (FindAnyObjectByType<EventSystem>() == null)
             {
@@ -155,15 +202,25 @@ namespace RPG.Combat
             lightGO.transform.rotation = Quaternion.Euler(30f, 30f, 0f);
 
             // 2. Tạo nền sàn
-            GameObject floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
-            floor.name = "ShowroomFloor";
-            floor.transform.SetParent(showroomRoot.transform);
-            floor.transform.localPosition = Vector3.zero;
-            floor.transform.localScale = new Vector3(3f, 1f, 3f);
-            Renderer r = floor.GetComponent<Renderer>();
-            Material mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            mat.color = new Color(0.06f, 0.08f, 0.12f); // Màu nền xanh đen tối
-            r.material = mat;
+            if (showroomEnvironmentPrefab != null)
+            {
+                GameObject env = Instantiate(showroomEnvironmentPrefab, showroomRoot.transform);
+                env.transform.localPosition = Vector3.zero;
+                env.transform.localRotation = Quaternion.identity;
+                env.transform.localScale = Vector3.one;
+            }
+            else
+            {
+                GameObject floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
+                floor.name = "ShowroomFloor";
+                floor.transform.SetParent(showroomRoot.transform);
+                floor.transform.localPosition = Vector3.zero;
+                floor.transform.localScale = new Vector3(3f, 1f, 3f);
+                Renderer r = floor.GetComponent<Renderer>();
+                Material mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+                mat.color = groundColor;
+                r.material = mat;
+            }
 
             // 3. Tạo Camera
             GameObject cameraGO = new GameObject("ShowroomCamera");
@@ -172,7 +229,7 @@ namespace RPG.Combat
             cameraGO.transform.localRotation = Quaternion.Euler(7f, 0f, 0f);
             showroomCamera = cameraGO.AddComponent<Camera>();
             showroomCamera.clearFlags = CameraClearFlags.SolidColor;
-            showroomCamera.backgroundColor = new Color(0.05f, 0.06f, 0.08f, 1f);
+            showroomCamera.backgroundColor = cameraBackgroundColor;
             showroomCamera.fieldOfView = 50f;
 
             // 4. Tạo Render Texture
@@ -187,6 +244,22 @@ namespace RPG.Combat
                 if (go != null) Destroy(go);
             }
             spawnedModels.Clear();
+        }
+
+        private void AdjustModelRotationForShowroom(GameObject model)
+        {
+            if (model == null) return;
+            Transform modelRoot = model.transform.Find("ModelRoot");
+            if (modelRoot != null)
+            {
+                float yRot = modelRoot.localEulerAngles.y;
+                if (Mathf.Abs(yRot - 180f) < 5f)
+                {
+                    model.transform.localRotation = Quaternion.Euler(0f, 0f, 0f);
+                    return;
+                }
+            }
+            model.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
         }
 
         private void UpdateShowroomModels()
@@ -210,13 +283,36 @@ namespace RPG.Combat
                     GameObject spawnedGO;
                     if (prefab != null)
                     {
-                        spawnedGO = Instantiate(prefab, spawnPos, Quaternion.Euler(0f, 180f, 0f), showroomRoot.transform);
+                        spawnedGO = Instantiate(prefab, spawnPos, Quaternion.identity, showroomRoot.transform);
+                        AdjustModelRotationForShowroom(spawnedGO);
                         
-                        // Cấu hình script nếu cần đứng yên
-                        CombatCharacter cc = spawnedGO.GetComponent<CombatCharacter>();
-                        if (cc != null)
+                        // Tắt toàn bộ di chuyển và vật lý trên model thực để tránh lệch vị trí
+                        foreach (var wasd in spawnedGO.GetComponentsInChildren<TopDownWASDController>()) { wasd.enabled = false; Destroy(wasd); }
+                        foreach (var combat in spawnedGO.GetComponentsInChildren<CombatController>()) { combat.enabled = false; Destroy(combat); }
+                        foreach (var cc in spawnedGO.GetComponentsInChildren<CombatCharacter>()) { cc.enabled = false; Destroy(cc); }
+                        foreach (var characterController in spawnedGO.GetComponentsInChildren<CharacterController>()) { characterController.enabled = false; Destroy(characterController); }
+                        foreach (var rb in spawnedGO.GetComponentsInChildren<Rigidbody>())
                         {
-                            cc.enabled = false; // Tắt logic chiến đấu ở showroom
+                            rb.isKinematic = true;
+                            rb.useGravity = false;
+                            rb.linearVelocity = Vector3.zero;
+                            rb.angularVelocity = Vector3.zero;
+                            Destroy(rb);
+                        }
+                        foreach (var col in spawnedGO.GetComponentsInChildren<Collider>()) { col.enabled = false; Destroy(col); }
+
+                        // Nạp các animation tùy chỉnh của nhân vật từ CharacterData
+                        Animator anim = spawnedGO.GetComponentInChildren<Animator>();
+                        if (anim != null)
+                        {
+                            ApplyRuntimeAnimationOverrides(anim, data);
+                            if (anim.runtimeAnimatorController != null && anim.layerCount > 0)
+                            {
+                                if (anim.HasState(0, Animator.StringToHash("Idle")))
+                                {
+                                    anim.Play("Idle");
+                                }
+                            }
                         }
                     }
                     else
@@ -225,12 +321,13 @@ namespace RPG.Combat
                         spawnedGO = new GameObject($"ProceduralModel_{data.characterName}");
                         spawnedGO.transform.SetParent(showroomRoot.transform);
                         spawnedGO.transform.position = spawnPos;
-                        spawnedGO.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+                        spawnedGO.transform.rotation = Quaternion.Euler(0f, 180f, 0f); // Đối diện camera
 
                         GameObject body = GameObject.CreatePrimitive(PrimitiveType.Capsule);
                         body.transform.SetParent(spawnedGO.transform);
                         body.transform.localPosition = new Vector3(0f, 1.0f, 0f);
                         body.transform.localScale = new Vector3(0.8f, 1.0f, 0.8f);
+                        Destroy(body.GetComponent<Collider>());
 
                         Renderer renderer = body.GetComponent<Renderer>();
                         Material bodyMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
@@ -243,6 +340,7 @@ namespace RPG.Combat
                         weapon.transform.localPosition = new Vector3(0.5f, 1.0f, 0.3f);
                         weapon.transform.localRotation = Quaternion.Euler(0, 0, 45);
                         weapon.transform.localScale = new Vector3(0.15f, 0.8f, 0.15f);
+                        Destroy(weapon.GetComponent<Collider>());
                         Renderer weaponRenderer = weapon.GetComponent<Renderer>();
                         Material weaponMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
                         weaponMat.color = Color.gray;
@@ -252,21 +350,27 @@ namespace RPG.Combat
                     spawnedModels.Add(spawnedGO);
 
                     // Cập nhật Text Tên & Hệ
-                    slotNameTexts[i].text = data.characterName;
-                    slotElementTexts[i].text = data.element.ToString().ToUpper();
-                    slotElementTexts[i].color = GetElementColor(data.element);
+                    if (slotNameTexts[i] != null) slotNameTexts[i].text = data.characterName;
+                    if (slotElementTexts[i] != null)
+                    {
+                        slotElementTexts[i].text = data.element.ToString().ToUpper();
+                        slotElementTexts[i].color = GetElementColor(data.element);
+                    }
                 }
                 else
                 {
                     // Slot trống: Hiện thị dấu cộng gợi ý chọn nhân vật
-                    slotNameTexts[i].text = "TRỐNG";
-                    slotElementTexts[i].text = "Click để chọn";
-                    slotElementTexts[i].color = Color.gray;
+                    if (slotNameTexts[i] != null) slotNameTexts[i].text = "TRỐNG";
+                    if (slotElementTexts[i] != null)
+                    {
+                        slotElementTexts[i].text = "Click để chọn";
+                        slotElementTexts[i].color = Color.gray;
+                    }
                 }
             }
         }
 
-        private void CreateUIElements()
+        public void CreateUIElements()
         {
             if (canvasGO != null) Destroy(canvasGO);
 
@@ -378,6 +482,7 @@ namespace RPG.Combat
                 btnImg.color = new Color(1f, 1f, 1f, 0.01f);
                 Button btn = btnGO.AddComponent<Button>();
                 btn.onClick.AddListener(() => OpenCharacterSelectionList(slotIndex));
+                slotButtons[i] = btn;
             }
 
             // --- NÚT BẮT ĐẦU VÀ HỦY ---
@@ -527,6 +632,20 @@ namespace RPG.Combat
             listContentContainer = contentGO.transform;
 
             characterListPanel.SetActive(false); // Ẩn popup mặc định
+
+            // Thiết lập references để đóng gói Prefab
+            var refs = canvasGO.AddComponent<CombatTeamSelectionUIReferences>();
+            refs.showroomRawImage = showroomRawImage;
+            refs.characterListPanel = characterListPanel;
+            refs.listContentContainer = listContentContainer;
+            refs.btnStart = startBtn;
+            refs.btnCancel = cancelBtn;
+            for (int i = 0; i < 4; i++)
+            {
+                refs.slotNameTexts[i] = slotNameTexts[i];
+                refs.slotElementTexts[i] = slotElementTexts[i];
+                refs.slotButtons[i] = slotButtons[i];
+            }
         }
 
         private void OpenCharacterSelectionList(int slotIndex)
@@ -749,6 +868,48 @@ namespace RPG.Combat
             }
 
             return data;
+        }
+
+        private void ApplyRuntimeAnimationOverrides(Animator animator, CharacterData characterData)
+        {
+            if (animator == null || characterData == null || animator.runtimeAnimatorController == null) return;
+
+            RuntimeAnimatorController baseController = animator.runtimeAnimatorController;
+            if (baseController is AnimatorOverrideController overrideCtrl)
+            {
+                baseController = overrideCtrl.runtimeAnimatorController;
+            }
+
+            AnimatorOverrideController newOverrideController = new AnimatorOverrideController(baseController);
+            var overrides = new List<KeyValuePair<AnimationClip, AnimationClip>>();
+            var originalClips = newOverrideController.animationClips;
+
+            foreach (var originalClip in originalClips)
+            {
+                if (originalClip == null) continue;
+                string clipName = originalClip.name.ToLower();
+                AnimationClip targetClip = null;
+
+                if (clipName.Contains("idle") && characterData.idleClip != null) targetClip = characterData.idleClip;
+                else if (clipName.Contains("run") && characterData.runClip != null) targetClip = characterData.runClip;
+                else if ((clipName.Contains("attack1") || clipName.Contains("basic") || clipName.Contains("attack_1") || clipName.Contains("combo01")) && characterData.skillBasic != null && characterData.skillBasic.skillClip != null) targetClip = characterData.skillBasic.skillClip;
+                else if ((clipName.Contains("attack2") || clipName.Contains("special") || clipName.Contains("attack_2") || clipName.Contains("combo02")) && characterData.skillSpecial != null && characterData.skillSpecial.skillClip != null) targetClip = characterData.skillSpecial.skillClip;
+                else if ((clipName.Contains("ultimate") || clipName.Contains("ult") || clipName.Contains("skill03")) && characterData.skillUltimate != null && characterData.skillUltimate.skillClip != null) targetClip = characterData.skillUltimate.skillClip;
+                else if ((clipName.Contains("defend") || clipName.Contains("guard") || clipName.Contains("block")) && characterData.defendClip != null) targetClip = characterData.defendClip;
+                else if ((clipName.Contains("hit") || clipName.Contains("damage") || clipName.Contains("hurt")) && characterData.hitClip != null) targetClip = characterData.hitClip;
+                else if ((clipName.Contains("die") || clipName.Contains("dead") || clipName.Contains("death")) && characterData.dieClip != null) targetClip = characterData.dieClip;
+
+                if (targetClip != null)
+                {
+                    overrides.Add(new KeyValuePair<AnimationClip, AnimationClip>(originalClip, targetClip));
+                }
+            }
+
+            if (overrides.Count > 0)
+            {
+                newOverrideController.ApplyOverrides(overrides);
+                animator.runtimeAnimatorController = newOverrideController;
+            }
         }
     }
 }

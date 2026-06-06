@@ -36,6 +36,8 @@ namespace RPG.Combat
         private AnimationClip attack2Clip;
         private AnimationClip ultimateClip;
         private AnimationClip defendClip;
+        private AnimationClip hitClip;
+        private AnimationClip dieClip;
 
         // Hiệu ứng kỹ năng (VFX)
         private GameObject turnVFXPrefab;
@@ -86,6 +88,8 @@ namespace RPG.Combat
             attack2Clip = (AnimationClip)EditorGUILayout.ObjectField("Tấn công đặc biệt - Chiêu 2 (Attack 2 Clip)", attack2Clip, typeof(AnimationClip), false);
             ultimateClip = (AnimationClip)EditorGUILayout.ObjectField("Chiêu cuối - Ultimate Clip", ultimateClip, typeof(AnimationClip), false);
             defendClip = (AnimationClip)EditorGUILayout.ObjectField("Phòng thủ - Defend Clip", defendClip, typeof(AnimationClip), false);
+            hitClip = (AnimationClip)EditorGUILayout.ObjectField("Bị tấn công (Hit Clip)", hitClip, typeof(AnimationClip), false);
+            dieClip = (AnimationClip)EditorGUILayout.ObjectField("Chết (Die Clip)", dieClip, typeof(AnimationClip), false);
 
             GUILayout.Space(10);
 
@@ -142,13 +146,15 @@ namespace RPG.Combat
             AddStateWithClip(stateMachine, "Attack2", attack2Clip);
             AddStateWithClip(stateMachine, "Ultimate", ultimateClip);
             AddStateWithClip(stateMachine, "Defend", defendClip);
+            AddStateWithClip(stateMachine, "Hit", hitClip);
+            AddStateWithClip(stateMachine, "Die", dieClip);
 
             Debug.Log($"[CharacterBuilder] Đã tạo Animator Controller thành công tại: {animPath}");
 
             // 2. Tự động sinh ra 3 tệp dữ liệu kỹ năng SkillData tương ứng
-            SkillData basicSkill = CreateSkillAsset($"{charName}_SkillBasic", $"{charId}_basic", "Tấn Công Thường", "Gây sát thương vật lý/thuộc tính chuẩn lên một mục tiêu.", SkillType.BASIC, 0, 1.0f, TargetType.SINGLE, 0f, 10f, skillsFolder);
-            SkillData specialSkill = CreateSkillAsset($"{charName}_SkillSpecial", $"{charId}_special", "Kỹ Năng Đặc Biệt", "Bộc phát kỹ năng gây sát thương lớn và tạo hiệu ứng đặc biệt lên mục tiêu.", SkillType.SPECIAL, 2, 1.5f, TargetType.SINGLE, 0f, 15f, skillsFolder);
-            SkillData ultimateSkill = CreateSkillAsset($"{charName}_SkillUltimate", $"{charId}_ultimate", "Chiêu Cuối (Ultimate)", "Chiêu cuối hủy diệt gây sát thương diện rộng cực lớn.", SkillType.ULTIMATE, 0, 2.2f, TargetType.AOE, 100f, 0f, skillsFolder);
+            SkillData basicSkill = CreateSkillAsset($"{charName}_SkillBasic", $"{charId}_basic", "Tấn Công Thường", "Gây sát thương vật lý/thuộc tính chuẩn lên một mục tiêu.", SkillType.BASIC, 0, 1.0f, TargetType.SINGLE, 0f, 10f, attack1Clip, basicAttackImpactVFX, skillsFolder);
+            SkillData specialSkill = CreateSkillAsset($"{charName}_SkillSpecial", $"{charId}_special", "Kỹ Năng Đặc Biệt", "Bộc phát kỹ năng gây sát thương lớn và tạo hiệu ứng đặc biệt lên mục tiêu.", SkillType.SPECIAL, 2, 1.5f, TargetType.SINGLE, 0f, 15f, attack2Clip, specialAttackImpactVFX, skillsFolder);
+            SkillData ultimateSkill = CreateSkillAsset($"{charName}_SkillUltimate", $"{charId}_ultimate", "Chiêu Cuối (Ultimate)", "Chiêu cuối hủy diệt gây sát thương diện rộng cực lớn.", SkillType.ULTIMATE, 0, 2.2f, TargetType.AOE, 100f, 0f, ultimateClip, ultimateVFX, skillsFolder);
 
             // 3. Tạo CharacterData ScriptableObject
             CharacterData charData = ScriptableObject.CreateInstance<CharacterData>();
@@ -170,9 +176,13 @@ namespace RPG.Combat
 
             // Gán các trường VFX
             charData.turnVFXPrefab = turnVFXPrefab;
-            charData.basicAttackImpactVFX = basicAttackImpactVFX;
-            charData.specialAttackImpactVFX = specialAttackImpactVFX;
-            charData.ultimateVFX = ultimateVFX;
+
+            // Gán các trường Animation Clips (Không lưu 3 clip tấn công vào CharacterData)
+            charData.idleClip = idleClip;
+            charData.runClip = runClip;
+            charData.defendClip = defendClip;
+            charData.hitClip = hitClip;
+            charData.dieClip = dieClip;
 
             string charDataPath = $"{charDataFolder}/{charName}_Data.asset";
             AssetDatabase.CreateAsset(charData, charDataPath);
@@ -246,7 +256,7 @@ namespace RPG.Combat
             }
         }
 
-        private SkillData CreateSkillAsset(string assetName, string skillId, string skillName, string desc, SkillType type, int cd, float dmgMult, TargetType target, float cost, float generated, string folder)
+        private SkillData CreateSkillAsset(string assetName, string skillId, string skillName, string desc, SkillType type, int cd, float dmgMult, TargetType target, float cost, float generated, AnimationClip clip, GameObject vfx, string folder)
         {
             SkillData skill = ScriptableObject.CreateInstance<SkillData>();
             skill.skillId = skillId;
@@ -259,6 +269,132 @@ namespace RPG.Combat
             skill.energyCost = cost;
             skill.energyGenerated = generated;
             skill.skillColor = type == SkillType.BASIC ? Color.white : (type == SkillType.SPECIAL ? Color.yellow : Color.red);
+            skill.skillClip = clip;
+            skill.skillImpactVFX = vfx;
+
+            string path = $"{folder}/{assetName}.asset";
+            AssetDatabase.CreateAsset(skill, path);
+            return skill;
+        }
+
+        [MenuItem("Tools/RPG Spawn Default 4 Characters")]
+        public static void SpawnDefaultCharacters()
+        {
+            CreateSingleCharacter("char_kazuko", "Kazuko", ElementType.Fire, CharacterRole.VANGUARD, new Color(0.9f, 0.2f, 0.1f), 700f, 150f, 40f, 110f, 0.30f, 1.80f);
+            CreateSingleCharacter("char_hoshi", "Hoshi", ElementType.Ice, CharacterRole.BASTION, new Color(0.2f, 0.6f, 0.9f), 1000f, 80f, 80f, 90f, 0.05f, 1.40f);
+            CreateSingleCharacter("char_rin", "Rin", ElementType.Lightning, CharacterRole.ECHO, new Color(0.9f, 0.8f, 0.1f), 650f, 90f, 45f, 130f, 0.15f, 1.60f);
+            CreateSingleCharacter("char_mei", "Mei", ElementType.Nature, CharacterRole.WARDEN, new Color(0.2f, 0.8f, 0.3f), 900f, 80f, 60f, 100f, 0.10f, 1.50f);
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+
+            EditorUtility.DisplayDialog("Thành công", "Đã khởi tạo thành công 4 nhân vật demo:\n- Kazuko (Fire - Vanguard)\n- Hoshi (Ice - Bastion)\n- Rin (Lightning - Echo)\n- Mei (Nature - Warden)\n\nCác file dữ liệu ScriptableObject và Prefab đã được tạo trong thư mục Assets/_Project/Resources!", "OK");
+        }
+
+        private static void CreateSingleCharacter(
+            string charId, string charName, ElementType element, CharacterRole role, Color themeColor,
+            float maxHP, float atk, float def, float speed, float critRate, float critDmg)
+        {
+            string animFolder = "Assets/_Project/Resources/Animators";
+            string skillsFolder = "Assets/_Project/Resources/Skills";
+            string charDataFolder = "Assets/_Project/Resources/Characters";
+            string prefabFolder = "Assets/_Project/Resources/Prefabs/Characters";
+
+            CreateFolderIfNotExistStatic("Assets/_Project/Resources");
+            CreateFolderIfNotExistStatic(animFolder);
+            CreateFolderIfNotExistStatic(skillsFolder);
+            CreateFolderIfNotExistStatic(charDataFolder);
+            CreateFolderIfNotExistStatic("Assets/_Project/Resources/Prefabs");
+            CreateFolderIfNotExistStatic(prefabFolder);
+
+            // 1. Tạo Animator Controller
+            string animPath = $"{animFolder}/{charName}_Animator.controller";
+            var animatorController = UnityEditor.Animations.AnimatorController.CreateAnimatorControllerAtPath(animPath);
+            
+            // Thêm các state hoạt ảnh
+            var layer = animatorController.layers[0];
+            var stateMachine = layer.stateMachine;
+            stateMachine.AddState("Idle");
+            stateMachine.AddState("Run");
+            stateMachine.AddState("Attack1");
+            stateMachine.AddState("Attack2");
+            stateMachine.AddState("Ultimate");
+            stateMachine.AddState("Defend");
+            stateMachine.AddState("Hit");
+            stateMachine.AddState("Die");
+
+            // 2. Tạo SkillData
+            SkillData basicSkill = CreateSkillAssetStatic($"{charName}_SkillBasic", $"{charId}_basic", "Tấn Công Thường", "Gây sát thương thuộc tính chuẩn lên một mục tiêu.", SkillType.BASIC, 0, 1.0f, TargetType.SINGLE, 0f, 10f, null, null, skillsFolder);
+            SkillData specialSkill = CreateSkillAssetStatic($"{charName}_SkillSpecial", $"{charId}_special", "Kỹ Năng Đặc Biệt", "Bộc phát kỹ năng gây sát thương lớn và tạo hiệu ứng đặc biệt lên mục tiêu.", SkillType.SPECIAL, 2, 1.5f, TargetType.SINGLE, 0f, 15f, null, null, skillsFolder);
+            SkillData ultimateSkill = CreateSkillAssetStatic($"{charName}_SkillUltimate", $"{charId}_ultimate", "Chiêu Cuối (Ultimate)", "Chiêu cuối hủy diệt gây sát thương diện rộng cực lớn.", SkillType.ULTIMATE, 0, 2.2f, TargetType.AOE, 100f, 0f, null, null, skillsFolder);
+
+            // 3. Dữ liệu CharacterData
+            CharacterData charData = ScriptableObject.CreateInstance<CharacterData>();
+            charData.characterId = charId;
+            charData.characterName = charName;
+            charData.element = element;
+            charData.role = role;
+            charData.themeColor = themeColor;
+            charData.baseMaxHP = maxHP;
+            charData.baseATK = atk;
+            charData.baseDEF = def;
+            charData.baseSpeed = speed;
+            charData.baseCritRate = critRate;
+            charData.baseCritDMG = critDmg;
+            charData.isRecollectionUnlocked = true;
+            
+            charData.skillBasic = basicSkill;
+            charData.skillSpecial = specialSkill;
+            charData.skillUltimate = ultimateSkill;
+
+            string charDataPath = $"{charDataFolder}/{charName}_Data.asset";
+            AssetDatabase.CreateAsset(charData, charDataPath);
+
+            // 4. Tạo Prefab nhân vật hoàn chỉnh
+            GameObject tempGO = new GameObject($"Ally_{charName}");
+            CombatCharacter cc = tempGO.AddComponent<CombatCharacter>();
+            cc.isAlly = true;
+            cc.characterData = charData;
+
+            GameObject modelRootGO = new GameObject("ModelRoot");
+            modelRootGO.transform.SetParent(tempGO.transform);
+            cc.modelRoot = modelRootGO.transform;
+
+            Animator animator = modelRootGO.AddComponent<Animator>();
+            animator.runtimeAnimatorController = animatorController;
+
+            string prefabPath = $"{prefabFolder}/{charName}.prefab";
+            PrefabUtility.SaveAsPrefabAsset(tempGO, prefabPath);
+            DestroyImmediate(tempGO);
+
+            Debug.Log($"[CharacterBuilder] Đã tạo thành công nhân vật: {charName}");
+        }
+
+        private static void CreateFolderIfNotExistStatic(string path)
+        {
+            if (!AssetDatabase.IsValidFolder(path))
+            {
+                string parent = Path.GetDirectoryName(path).Replace("\\", "/");
+                string folderName = Path.GetFileName(path);
+                AssetDatabase.CreateFolder(parent, folderName);
+            }
+        }
+
+        private static SkillData CreateSkillAssetStatic(string assetName, string skillId, string skillName, string desc, SkillType type, int cd, float dmgMult, TargetType target, float cost, float generated, AnimationClip clip, GameObject vfx, string folder)
+        {
+            SkillData skill = ScriptableObject.CreateInstance<SkillData>();
+            skill.skillId = skillId;
+            skill.skillName = skillName;
+            skill.description = desc;
+            skill.skillType = type;
+            skill.cooldown = cd;
+            skill.damageMultiplier = dmgMult;
+            skill.targetType = target;
+            skill.energyCost = cost;
+            skill.energyGenerated = generated;
+            skill.skillColor = type == SkillType.BASIC ? Color.white : (type == SkillType.SPECIAL ? Color.yellow : Color.red);
+            skill.skillClip = clip;
+            skill.skillImpactVFX = vfx;
 
             string path = $"{folder}/{assetName}.asset";
             AssetDatabase.CreateAsset(skill, path);

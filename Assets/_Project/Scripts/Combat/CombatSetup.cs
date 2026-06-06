@@ -86,11 +86,11 @@ namespace RPG.Combat
             List<CombatCharacter> allies = new List<CombatCharacter>();
             List<CombatCharacter> enemies = new List<CombatCharacter>();
 
-            // Tạo các ScriptableObjects dữ liệu cho 4 Allies và 4 Enemies mặc định phòng hờ
-            CharacterData ally1 = CreateAllyData("Fire Warrior", ElementType.Fire, new Color(0.9f, 0.2f, 0.1f), 800f, 120f, 60f, 110f, 0.20f, 1.50f);
-            CharacterData ally2 = CreateAllyData("Ice Mage", ElementType.Ice, new Color(0.2f, 0.6f, 0.9f), 600f, 100f, 40f, 95f, 0.10f, 1.60f);
-            CharacterData ally3 = CreateAllyData("Storm Rogue", ElementType.Lightning, new Color(0.9f, 0.8f, 0.1f), 700f, 140f, 50f, 125f, 0.30f, 1.80f);
-            CharacterData ally4 = CreateAllyData("Nature Druid", ElementType.Nature, new Color(0.2f, 0.8f, 0.3f), 1000f, 80f, 70f, 100f, 0.05f, 1.20f);
+            // Tạo các ScriptableObjects dữ liệu cho 4 Allies và 4 Enemies mặc định phòng hờ theo cấu trúc vai trò mới
+            CharacterData ally1 = CreateAllyData("Kazuko", ElementType.Fire, CharacterRole.VANGUARD, new Color(0.9f, 0.2f, 0.1f), 700f, 150f, 40f, 110f, 0.30f, 1.80f);
+            CharacterData ally2 = CreateAllyData("Hoshi", ElementType.Ice, CharacterRole.BASTION, new Color(0.2f, 0.6f, 0.9f), 1000f, 80f, 80f, 90f, 0.05f, 1.40f);
+            CharacterData ally3 = CreateAllyData("Rin", ElementType.Lightning, CharacterRole.ECHO, new Color(0.9f, 0.8f, 0.1f), 650f, 90f, 45f, 130f, 0.15f, 1.60f);
+            CharacterData ally4 = CreateAllyData("Mei", ElementType.Nature, CharacterRole.WARDEN, new Color(0.2f, 0.8f, 0.3f), 900f, 80f, 60f, 100f, 0.10f, 1.50f);
 
             CharacterData enemy1 = CreateEnemyData("Fire Slime", ElementType.Fire, new Color(0.8f, 0.1f, 0.1f), 700f, 90f, 40f, 90f);
             CharacterData enemy2 = CreateEnemyData("Ice Sentinel", ElementType.Ice, new Color(0.1f, 0.7f, 0.8f), 900f, 80f, 75f, 80f);
@@ -133,8 +133,10 @@ namespace RPG.Combat
                     {
                         go = new GameObject("Ally_" + data.characterName);
                         go.transform.position = allyPositions[i];
-                        go.transform.rotation = Quaternion.identity;
                     }
+
+                    CleanOverworldComponents(go);
+                    SetCombatRotation(go, true);
 
                     CombatCharacter cc = go.GetComponent<CombatCharacter>();
                     if (cc == null) cc = go.AddComponent<CombatCharacter>();
@@ -154,14 +156,16 @@ namespace RPG.Combat
                     GameObject go;
                     if (prefab != null)
                     {
-                        go = Instantiate(prefab, enemyPositions[i], Quaternion.Euler(0f, 180f, 0f));
+                        go = Instantiate(prefab, enemyPositions[i], Quaternion.identity);
                     }
                     else
                     {
                         go = new GameObject("Enemy_" + data.characterName);
                         go.transform.position = enemyPositions[i];
-                        go.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
                     }
+
+                    CleanOverworldComponents(go);
+                    SetCombatRotation(go, false);
 
                     CombatCharacter cc = go.GetComponent<CombatCharacter>();
                     if (cc == null) cc = go.AddComponent<CombatCharacter>();
@@ -221,6 +225,8 @@ namespace RPG.Combat
                         }
 
                         cc.Initialize(cc.characterData, cc.isAlly);
+                        CleanOverworldComponents(cc.gameObject);
+                        SetCombatRotation(cc.gameObject, cc.isAlly);
 
                         if (cc.isAlly) allies.Add(cc);
                         else enemies.Add(cc);
@@ -228,7 +234,7 @@ namespace RPG.Combat
                 }
                 else
                 {
-                    // 4. Nếu hoàn toàn trống trơ, tiến hành tạo Capsule/Cylinder procedural dự phòng
+                    // 4. Nếu hoàn toàn trống trơ, tiến hành tạo Capsule/Cylinder dự phòng
                     Debug.Log("[CombatSetup] Scene trống trơn. Tạo các Capsule/Cylinder dự phòng bằng code...");
                     
                     Vector3[] allyPositions = new Vector3[]
@@ -251,7 +257,8 @@ namespace RPG.Combat
                     {
                         GameObject go = new GameObject("Ally_" + allyDatas[i].characterName);
                         go.transform.position = allyPositions[i];
-                        go.transform.rotation = Quaternion.identity;
+                        CleanOverworldComponents(go);
+                        SetCombatRotation(go, true);
 
                         CombatCharacter cc = go.AddComponent<CombatCharacter>();
                         cc.Initialize(allyDatas[i], true);
@@ -262,7 +269,8 @@ namespace RPG.Combat
                     {
                         GameObject go = new GameObject("Enemy_" + enemyDatas[i].characterName);
                         go.transform.position = enemyPositions[i];
-                        go.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+                        CleanOverworldComponents(go);
+                        SetCombatRotation(go, false);
 
                         CombatCharacter cc = go.AddComponent<CombatCharacter>();
                         cc.Initialize(enemyDatas[i], false);
@@ -275,15 +283,86 @@ namespace RPG.Combat
             CombatManager.Instance.StartCombat(allies, enemies, weaknessDb);
         }
 
+        private void CleanOverworldComponents(GameObject go)
+        {
+            if (go == null) return;
+
+            // Vô hiệu hóa ngay lập tức để tránh lỗi di chuyển hay trọng lực kéo sập model xuống
+            var wasd = go.GetComponent<BLINK.Controller.TopDownWASDController>();
+            if (wasd != null) wasd.enabled = false;
+
+            var combatCtrl = go.GetComponent<BLINK.Controller.CombatController>();
+            if (combatCtrl != null) combatCtrl.enabled = false;
+
+            var cc = go.GetComponent<CharacterController>();
+            if (cc != null) cc.enabled = false;
+
+            var rb = go.GetComponent<Rigidbody>();
+            if (rb != null)
+            {
+                rb.isKinematic = true;
+                rb.useGravity = false;
+            }
+
+            var col = go.GetComponent<Collider>();
+            if (col != null) col.enabled = false;
+
+            // Hủy các component overworld này khỏi gameobject
+            if (wasd != null) Destroy(wasd);
+            if (combatCtrl != null) Destroy(combatCtrl);
+            if (cc != null) Destroy(cc);
+            if (rb != null) Destroy(rb);
+            if (col != null) Destroy(col);
+        }
+
+        private void SetCombatRotation(GameObject go, bool isAlly)
+        {
+            if (go == null) return;
+
+            // Allies hướng lên trên (+Z: xoay 0 Y), Enemies hướng xuống dưới (-Z: xoay 180 Y)
+            float targetY = isAlly ? 0f : 180f;
+
+            // Kiểm tra xem model có bị xoay ngược 180 độ sẵn không (ví dụ ModelRoot xoay ngược)
+            Transform modelRoot = go.transform.Find("ModelRoot");
+            if (modelRoot == null && go.transform.childCount > 0)
+            {
+                for (int i = 0; i < go.transform.childCount; i++)
+                {
+                    Transform child = go.transform.GetChild(i);
+                    if (child.name.ToLower().Contains("model") || child.name.ToLower().Contains("mesh") || child.name.ToLower().Contains("root"))
+                    {
+                        modelRoot = child;
+                        break;
+                    }
+                }
+            }
+
+            if (modelRoot != null)
+            {
+                // Nếu modelRoot có rotation ban đầu bị xoay (ví dụ localEulerAngles.y khoảng 180), ta có thể bù trừ
+                float localY = modelRoot.localEulerAngles.y;
+                if (Mathf.Approximately(localY, 180f) || (localY > 170f && localY < 190f))
+                {
+                    // Model con bị xoay ngược 180 độ, ta bù lại bằng cách xoay root ngược 180 độ so với hướng gốc
+                    go.transform.rotation = Quaternion.Euler(0f, targetY + 180f, 0f);
+                    return;
+                }
+            }
+
+            go.transform.rotation = Quaternion.Euler(0f, targetY, 0f);
+        }
+
         #region Sinh Dữ Liệu Nhân Vật bằng C# (In-Memory)
 
-        private CharacterData CreateAllyData(string name, ElementType element, Color color, float hp, float atk, float def, float speed, float critRate, float critDmg)
+        private CharacterData CreateAllyData(string name, ElementType element, CharacterRole role, Color color, float hp, float atk, float def, float speed, float critRate, float critDmg)
         {
             CharacterData data = ScriptableObject.CreateInstance<CharacterData>();
             data.characterId = "ally_" + name.ToLower().Replace(" ", "_");
             data.characterName = name;
             data.element = element;
+            data.role = role;
             data.themeColor = color;
+            data.isRecollectionUnlocked = true;
 
             data.baseMaxHP = hp;
             data.baseATK = atk;
@@ -292,10 +371,10 @@ namespace RPG.Combat
             data.baseCritRate = critRate;
             data.baseCritDMG = critDmg;
 
-            // Tạo các kỹ năng đặc thù
-            data.skillBasic = CreateBasicAttack(data.characterId, element);
-            data.skillSpecial = CreateSpecialSkill(data.characterId, element);
-            data.skillUltimate = CreateUltimateSkill(data.characterId, element);
+            // Tạo các kỹ năng theo vai trò
+            data.skillBasic = CreateBasicAttackForRole(data.characterId, role, element);
+            data.skillSpecial = CreateSpecialSkillForRole(data.characterId, role, element);
+            data.skillUltimate = CreateUltimateSkillForRole(data.characterId, role, element);
 
             return data;
         }
@@ -306,7 +385,9 @@ namespace RPG.Combat
             data.characterId = "enemy_" + name.ToLower().Replace(" ", "_");
             data.characterName = name;
             data.element = element;
+            data.role = CharacterRole.VANGUARD; // Kẻ địch mặc định là Vanguard
             data.themeColor = color;
+            data.isRecollectionUnlocked = false;
 
             data.baseMaxHP = hp;
             data.baseATK = atk;
@@ -315,125 +396,163 @@ namespace RPG.Combat
             data.baseCritRate = 0.05f;
             data.baseCritDMG = 1.50f;
 
-            // Kẻ địch chỉ cần Basic Attack và Special
-            data.skillBasic = CreateBasicAttack(data.characterId, element);
-            data.skillSpecial = CreateSpecialSkill(data.characterId, element);
-            
-            // Chiêu cuối (dành cho kẻ địch boss hoặc cấu hình mặc định)
-            data.skillUltimate = CreateUltimateSkill(data.characterId, element);
+            // Kẻ địch dùng kỹ năng Vanguard cơ bản
+            data.skillBasic = CreateBasicAttackForRole(data.characterId, CharacterRole.VANGUARD, element);
+            data.skillSpecial = CreateSpecialSkillForRole(data.characterId, CharacterRole.VANGUARD, element);
+            data.skillUltimate = CreateUltimateSkillForRole(data.characterId, CharacterRole.VANGUARD, element);
 
             return data;
         }
 
-        private SkillData CreateBasicAttack(string charId, ElementType element)
+        private SkillData CreateBasicAttackForRole(string charId, CharacterRole role, ElementType element)
         {
             SkillData skill = ScriptableObject.CreateInstance<SkillData>();
             skill.skillId = charId + "_basic";
-            skill.skillName = "Tấn Công Thường";
-            skill.description = "Gây sát thương vật lý/thuộc tính chuẩn lên một mục tiêu.";
             skill.skillType = SkillType.BASIC;
             skill.cooldown = 0;
             skill.damageMultiplier = 1.0f;
             skill.targetType = TargetType.SINGLE;
             skill.energyCost = 0f;
-            skill.energyGenerated = 10f; // Hồi 10 năng lượng
+            skill.energyGenerated = 10f;
             skill.skillColor = Color.white;
-            return skill;
-        }
 
-        private SkillData CreateSpecialSkill(string charId, ElementType element)
-        {
-            SkillData skill = ScriptableObject.CreateInstance<SkillData>();
-            skill.skillId = charId + "_special";
-            skill.skillType = SkillType.SPECIAL;
-            skill.cooldown = 2;
-            skill.energyCost = 0f;
-            skill.energyGenerated = 15f; // Hồi 15 năng lượng
-
-            // Tùy theo thuộc tính tạo hiệu ứng đặc thù
-            switch (element)
+            switch (role)
             {
-                case ElementType.Fire:
-                    skill.skillName = "Hỏa Long Tiễn";
-                    skill.description = "Bắn mũi tên lửa gây sát thương lớn và đặt hiệu ứng Burn (thiêu đốt) gây DOT 40% ATK trong 3 lượt.";
-                    skill.damageMultiplier = 1.5f;
-                    skill.targetType = TargetType.SINGLE;
-                    skill.skillColor = Color.red;
-
-                    EffectData burn = ScriptableObject.CreateInstance<EffectData>();
-                    burn.effectId = "debuff_burn";
-                    burn.effectName = "Thiêu Đốt";
-                    burn.effectType = EffectType.DAMAGE_OVER_TIME;
-                    burn.duration = 3;
-                    burn.modifierValue = 0.4f; // Gây sát thương DOT = 40% ATK người ra chiêu
-                    burn.effectColor = Color.red;
-                    skill.effects.Add(burn);
+                case CharacterRole.BASTION:
+                    skill.skillName = "Khiên Kích Provoke";
+                    skill.description = "Tấn công bằng khiên gây sát thương và khiêu khích đối thủ.";
+                    skill.damageMultiplier = 0.8f;
                     break;
-
-                case ElementType.Ice:
-                    skill.skillName = "Sương Băng Chậm Chạp";
-                    skill.description = "Phủ luồng không khí lạnh gây sát thương diện rộng và giảm 30% tốc độ của toàn bộ kẻ địch trong 2 lượt.";
-                    skill.damageMultiplier = 1.1f;
-                    skill.targetType = TargetType.AOE;
-                    skill.skillColor = Color.cyan;
-
-                    EffectData slow = ScriptableObject.CreateInstance<EffectData>();
-                    slow.effectId = "debuff_slow";
-                    slow.effectName = "Giảm Tốc";
-                    slow.effectType = EffectType.SPEED_CHANGE;
-                    slow.duration = 2;
-                    slow.modifierValue = -0.3f; // Giảm 30% Speed
-                    slow.effectColor = Color.cyan;
-                    skill.effects.Add(slow);
+                case CharacterRole.VANGUARD:
+                    skill.skillName = "Chém Nhược Điểm";
+                    skill.description = "Chém mạnh vào yếu điểm của kẻ địch.";
+                    skill.damageMultiplier = 1.2f;
                     break;
-
-                case ElementType.Lightning:
-                    skill.skillName = "Tia Sét Quá Tải";
-                    skill.description = "Bộc phát luồng điện cực mạnh gây sát thương đơn mục tiêu x1.6 ATK.";
-                    skill.damageMultiplier = 1.6f;
-                    skill.targetType = TargetType.SINGLE;
-                    skill.skillColor = Color.yellow;
+                case CharacterRole.ECHO:
+                    skill.skillName = "Sét Cộng Hưởng";
+                    skill.description = "Tấn công tia sét có khả năng truyền dẫn cộng hưởng.";
+                    skill.damageMultiplier = 0.9f;
                     break;
-
-                case ElementType.Nature:
-                    skill.skillName = "Phục Hồi Sinh Mệnh";
-                    skill.description = "Niệm chú bảo vệ thiên nhiên hồi 150 HP cho một đồng đội.";
-                    skill.damageMultiplier = 0.0f; // Không gây sát thương
-                    skill.targetType = TargetType.SINGLE;
-                    skill.skillColor = Color.green;
-
-                    // Do cơ chế heal ta sẽ thực hiện trực tiếp trong skill hoặc dùng buff HP regen
-                    // Để đơn giản, ta gán hiệu ứng Regen hồi máu dần hoặc hồi máu tức thì bằng hệ số ATK_BUFF đặc biệt.
-                    // Hãy hồi máu tức thì trong Skill bằng một buff hồi máu (ta có thể xử lý trong DamageCalculator hoặc trong logic).
-                    // Ở đây ta tạo một buff HP_REGEN:
-                    EffectData regen = ScriptableObject.CreateInstance<EffectData>();
-                    regen.effectId = "buff_regen";
-                    regen.effectName = "Hồi Máu";
-                    regen.effectType = EffectType.DAMAGE_OVER_TIME; // Dùng DOT nhưng giá trị âm để thành hồi máu!
-                    regen.duration = 2;
-                    regen.modifierValue = -0.4f; // DOT âm = Hồi HP bằng 40% ATK mỗi lượt!
-                    regen.effectColor = Color.green;
-                    skill.effects.Add(regen);
+                case CharacterRole.WARDEN:
+                    skill.skillName = "Cành Lá Trị Liệu";
+                    skill.description = "Đòn đánh nhẹ hồi HP nhỏ cho đồng đội ít máu nhất.";
+                    skill.damageMultiplier = 0.6f;
                     break;
-
-                default:
-                    skill.skillName = "Thiết Giáp Kích";
-                    skill.description = "Tấn công vật lý nặng nề x1.4 sát thương.";
-                    skill.damageMultiplier = 1.4f;
-                    skill.targetType = TargetType.SINGLE;
-                    skill.skillColor = Color.gray;
+                case CharacterRole.PHANTOM:
+                    skill.skillName = "Tấn Công Suy Yếu";
+                    skill.description = "Tấn công nhanh làm suy yếu phòng tuyến kẻ địch.";
+                    skill.damageMultiplier = 0.9f;
                     break;
             }
 
             return skill;
         }
 
-        private SkillData CreateUltimateSkill(string charId, ElementType element)
+        private SkillData CreateSpecialSkillForRole(string charId, CharacterRole role, ElementType element)
+        {
+            SkillData skill = ScriptableObject.CreateInstance<SkillData>();
+            skill.skillId = charId + "_special";
+            skill.skillType = SkillType.SPECIAL;
+            skill.cooldown = 2;
+            skill.energyCost = 0f;
+            skill.energyGenerated = 15f;
+
+            switch (role)
+            {
+                case CharacterRole.BASTION:
+                    skill.skillName = "Fortress Stance";
+                    skill.description = "Bật thế phòng thủ vững chắc, tạo lá chắn giảm 40% sát thương nhận vào trong 2 lượt.";
+                    skill.damageMultiplier = 0f;
+                    skill.targetType = TargetType.ALL_ALLIES;
+                    skill.skillColor = Color.blue;
+                    
+                    EffectData fort = ScriptableObject.CreateInstance<EffectData>();
+                    fort.effectId = "fortress_buff";
+                    fort.effectName = "Fortress Shield";
+                    fort.effectType = EffectType.DEF_BUFF;
+                    fort.duration = 2;
+                    fort.modifierValue = 0.40f; // DEF +40%
+                    fort.effectColor = Color.blue;
+                    skill.effects.Add(fort);
+                    break;
+
+                case CharacterRole.VANGUARD:
+                    skill.skillName = "Breach Armor";
+                    skill.description = "Đòn đâm phá giáp, gây sát thương lớn bỏ qua 30% DEF kẻ địch.";
+                    skill.damageMultiplier = 1.6f;
+                    skill.targetType = TargetType.SINGLE;
+                    skill.skillColor = Color.red;
+                    
+                    if (element == ElementType.Fire)
+                    {
+                        EffectData burn = ScriptableObject.CreateInstance<EffectData>();
+                        burn.effectId = "debuff_burn";
+                        burn.effectName = "Thiêu Đốt";
+                        burn.effectType = EffectType.BURN;
+                        burn.duration = 3;
+                        burn.modifierValue = 0.4f;
+                        burn.effectColor = Color.red;
+                        skill.effects.Add(burn);
+                    }
+                    break;
+
+                case CharacterRole.ECHO:
+                    skill.skillName = "Chain Catalyst";
+                    skill.description = "Sét lan truyền qua 3 mục tiêu ngẫu nhiên gây sát thương liên tiếp.";
+                    skill.damageMultiplier = 1.2f;
+                    skill.targetType = TargetType.AOE;
+                    skill.skillColor = Color.yellow;
+                    break;
+
+                case CharacterRole.WARDEN:
+                    skill.skillName = "Bloom";
+                    skill.description = "Hồi HP mạnh cho 1 đồng đội và giải trừ 1 hiệu ứng xấu.";
+                    skill.damageMultiplier = 0f;
+                    skill.targetType = TargetType.SINGLE;
+                    skill.skillColor = Color.green;
+                    skill.cooldown = 3;
+
+                    EffectData heal = ScriptableObject.CreateInstance<EffectData>();
+                    heal.effectId = "heal_bloom";
+                    heal.effectName = "Bloom Heal";
+                    heal.effectType = EffectType.DAMAGE_OVER_TIME; // DOT âm = Heal
+                    heal.duration = 2;
+                    heal.modifierValue = -0.5f; // Hồi 50% ATK mỗi lượt
+                    heal.effectColor = Color.green;
+                    skill.effects.Add(heal);
+                    break;
+
+                case CharacterRole.PHANTOM:
+                    skill.skillName = "Unravel Defenses";
+                    skill.description = "Tấn công làm suy yếu kẻ địch, giảm 20% ATK trong 2 lượt.";
+                    skill.damageMultiplier = 1.2f;
+                    skill.targetType = TargetType.SINGLE;
+                    skill.skillColor = Color.magenta;
+
+                    EffectData weak = ScriptableObject.CreateInstance<EffectData>();
+                    weak.effectId = "debuff_weaken";
+                    weak.effectName = "Suy Yếu ATK";
+                    weak.effectType = EffectType.ATK_BUFF; // Buff ATK âm = Giảm ATK
+                    weak.duration = 2;
+                    weak.modifierValue = -0.2f;
+                    weak.effectColor = Color.magenta;
+                    skill.effects.Add(weak);
+                    break;
+            }
+
+            return skill;
+        }
+
+        private SkillData CreateUltimateSkillForRole(string charId, CharacterRole role, ElementType element)
         {
             SkillData skill = ScriptableObject.CreateInstance<SkillData>();
             skill.skillId = charId + "_ultimate";
+            skill.skillName = "Tuyệt Kỹ " + role.ToString();
+            skill.description = "Giải phóng năng lượng bộc phá sức mạnh tối đa.";
             skill.skillType = SkillType.ULTIMATE;
-            skill.cooldown = 0; // Chiêu cuối không có cooldown, dùng năng lượng
+            skill.cooldown = 0;
+            skill.damageMultiplier = 2.2f;
+            skill.targetType = TargetType.AOE;
             skill.energyCost = 100f;
             skill.energyGenerated = 0f;
 
@@ -442,14 +561,12 @@ namespace RPG.Combat
                 case ElementType.Fire:
                     skill.skillName = "Hỏa Tiễn Hủy Diệt";
                     skill.description = "Thiêu cháy toàn bộ chiến trường. Gây sát thương diện rộng x2.2 ATK lên tất cả kẻ địch.";
-                    skill.damageMultiplier = 2.2f;
-                    skill.targetType = TargetType.AOE;
                     skill.skillColor = Color.red;
                     break;
 
                 case ElementType.Ice:
                     skill.skillName = "Tuyệt Đối Băng Phong";
-                    skill.description = "Đóng băng vĩnh cửu một mục tiêu. Gây sát thương x1.8 ATK và đặt trạng thái ĐÓNG BĂNG (Freeze) khiến mục tiêu không thể hành động trong 1 lượt.";
+                    skill.description = "Đóng băng vĩnh cửu một mục tiêu. Gây sát thương x1.8 ATK và đặt trạng thái ĐÓNG BĂNG (Freeze) 1 lượt.";
                     skill.damageMultiplier = 1.8f;
                     skill.targetType = TargetType.SINGLE;
                     skill.skillColor = Color.blue;
@@ -466,7 +583,7 @@ namespace RPG.Combat
 
                 case ElementType.Lightning:
                     skill.skillName = "Thiên Lôi Triệu Hồi";
-                    skill.description = "Trừng phạt sấm sét mục tiêu mạnh mẽ nhất. Gây sát thương cực lớn x2.8 ATK lên một kẻ địch và có 50% làm CHOÁNG (Stun) chúng trong 1 lượt.";
+                    skill.description = "Trừng phạt sấm sét gây x2.8 sát thương lên một kẻ địch và có 50% làm CHOÁNG (Stun) 1 lượt.";
                     skill.damageMultiplier = 2.8f;
                     skill.targetType = TargetType.SINGLE;
                     skill.skillColor = Color.yellow;
@@ -483,8 +600,8 @@ namespace RPG.Combat
 
                 case ElementType.Nature:
                     skill.skillName = "Rừng Già Trỗi Dậy";
-                    skill.description = "Hồi sinh toàn bộ năng lượng sống của rừng. Hồi máu nhẹ và tăng 30% ATK cho toàn bộ đồng đội trong 3 lượt.";
-                    skill.damageMultiplier = 0.0f; // Kỹ năng hỗ trợ
+                    skill.description = "Hồi sinh năng lượng sống. Hồi 10% HP và tăng 30% ATK cho toàn bộ đồng đội trong 3 lượt.";
+                    skill.damageMultiplier = 0.0f;
                     skill.targetType = TargetType.ALL_ALLIES;
                     skill.skillColor = Color.green;
 

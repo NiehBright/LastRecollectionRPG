@@ -25,6 +25,15 @@ namespace RPG.Combat
         ALL_ENEMIES
     }
 
+    public enum CharacterRole
+    {
+        BASTION,
+        VANGUARD,
+        ECHO,
+        WARDEN,
+        PHANTOM
+    }
+
     public enum EffectType
     {
         DAMAGE_OVER_TIME,
@@ -32,6 +41,12 @@ namespace RPG.Combat
         ATK_BUFF,
         DEF_BUFF,
         FREEZE,
-        STUN
+        STUN,
+        BURN,
+        POISON,
+        SHIELD,
+        LIFESTEAL,
+        REFLECT,
+        COMBO_TRIGGER
     }
 }
