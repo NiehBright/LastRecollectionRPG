@@ -46,66 +46,89 @@ namespace RPG.Combat
         private GameObject ultimateVFX;
 
         private Vector2 scrollPos;
+        private int tabIndex = 0;
+        private string[] tabNames = new string[] { "Thông tin & Chỉ số", "Mô hình & Hoạt ảnh", "Hiệu ứng VFX", "Tính năng nhanh" };
 
         private void OnGUI()
         {
-            scrollPos = EditorGUILayout.BeginScrollView(scrollPos);
-
             GUILayout.Label("RPG Character Builder Tool", EditorStyles.boldLabel);
             EditorGUILayout.HelpBox("Sử dụng công cụ này để tạo dữ liệu nhân vật (CharacterData ScriptableObject), tự động sinh cấu trúc Animator Controller và đóng gói thành Prefab nhân vật hoàn chỉnh.", MessageType.Info);
 
             GUILayout.Space(10);
-
-            // 1. General Info
-            GUILayout.Label("1. Thông tin chung (General Info)", EditorStyles.boldLabel);
-            charId = EditorGUILayout.TextField("ID Nhân vật (Unique ID)", charId);
-            charName = EditorGUILayout.TextField("Tên Nhân vật", charName);
-            element = (ElementType)EditorGUILayout.EnumPopup("Thuộc tính (Element)", element);
-            avatar = (Sprite)EditorGUILayout.ObjectField("Ảnh đại diện (Avatar)", avatar, typeof(Sprite), false);
-            themeColor = EditorGUILayout.ColorField("Màu chủ đạo (Theme Color)", themeColor);
-
-            GUILayout.Space(10);
-
-            // 2. Stats
-            GUILayout.Label("2. Chỉ số chiến đấu (Stats)", EditorStyles.boldLabel);
-            maxHP = EditorGUILayout.FloatField("Máu tối đa (Max HP)", maxHP);
-            atk = EditorGUILayout.FloatField("Sức tấn công (ATK)", atk);
-            def = EditorGUILayout.FloatField("Sức phòng thủ (DEF)", def);
-            speed = EditorGUILayout.FloatField("Tốc độ (Speed)", speed);
-            critRate = EditorGUILayout.Slider("Tỷ lệ bạo kích (Crit Rate)", critRate, 0f, 1f);
-            critDmg = EditorGUILayout.Slider("Sát thương bạo kích (Crit DMG)", critDmg, 1f, 5f);
-
-            GUILayout.Space(10);
-
-            // 3. Model & Animations
-            GUILayout.Label("3. Mô hình & Hoạt ảnh (Model & Animations)", EditorStyles.boldLabel);
-            modelPrefab = (GameObject)EditorGUILayout.ObjectField("Mô hình 3D (Character Model Prefab)", modelPrefab, typeof(GameObject), false);
             
-            EditorGUILayout.HelpBox("Kéo thả các Clip hoạt ảnh (Animations) tương ứng bên dưới. Animator Controller sẽ tự động liên kết các hoạt ảnh này.", MessageType.None);
-            idleClip = (AnimationClip)EditorGUILayout.ObjectField("Đứng yên (Idle Clip)", idleClip, typeof(AnimationClip), false);
-            runClip = (AnimationClip)EditorGUILayout.ObjectField("Chạy đến (Run Clip)", runClip, typeof(AnimationClip), false);
-            attack1Clip = (AnimationClip)EditorGUILayout.ObjectField("Tấn công thường - Chiêu 1 (Attack 1 Clip)", attack1Clip, typeof(AnimationClip), false);
-            attack2Clip = (AnimationClip)EditorGUILayout.ObjectField("Tấn công đặc biệt - Chiêu 2 (Attack 2 Clip)", attack2Clip, typeof(AnimationClip), false);
-            ultimateClip = (AnimationClip)EditorGUILayout.ObjectField("Chiêu cuối - Ultimate Clip", ultimateClip, typeof(AnimationClip), false);
-            defendClip = (AnimationClip)EditorGUILayout.ObjectField("Phòng thủ - Defend Clip", defendClip, typeof(AnimationClip), false);
-            hitClip = (AnimationClip)EditorGUILayout.ObjectField("Bị tấn công (Hit Clip)", hitClip, typeof(AnimationClip), false);
-            dieClip = (AnimationClip)EditorGUILayout.ObjectField("Chết (Die Clip)", dieClip, typeof(AnimationClip), false);
-
+            // Vẽ Toolbar Tab Selector
+            tabIndex = GUILayout.Toolbar(tabIndex, tabNames, GUILayout.Height(30));
             GUILayout.Space(10);
 
-            // 4. VFX Configuration
-            GUILayout.Label("4. Hiệu ứng kỹ năng (VFX)", EditorStyles.boldLabel);
-            EditorGUILayout.HelpBox("Kéo thả các Prefab hiệu ứng tương ứng bên dưới để hiển thị tại runtime.", MessageType.None);
-            turnVFXPrefab = (GameObject)EditorGUILayout.ObjectField("VFX Lượt Đi (Turn Start/Idle)", turnVFXPrefab, typeof(GameObject), false);
-            basicAttackImpactVFX = (GameObject)EditorGUILayout.ObjectField("VFX Đòn Đánh Thường (Basic Impact)", basicAttackImpactVFX, typeof(GameObject), false);
-            specialAttackImpactVFX = (GameObject)EditorGUILayout.ObjectField("VFX Chiêu Đặc Biệt (Special Impact)", specialAttackImpactVFX, typeof(GameObject), false);
-            ultimateVFX = (GameObject)EditorGUILayout.ObjectField("VFX Chiêu Cuối (Ultimate VFX)", ultimateVFX, typeof(GameObject), false);
+            scrollPos = EditorGUILayout.BeginScrollView(scrollPos);
 
-            GUILayout.Space(20);
-
-            if (GUILayout.Button("Tạo Nhân Vật (Build Character)", GUILayout.Height(40)))
+            switch (tabIndex)
             {
-                BuildCharacter();
+                case 0: // Thông tin & Chỉ số
+                    // 1. General Info
+                    GUILayout.Label("1. Thông tin chung (General Info)", EditorStyles.boldLabel);
+                    charId = EditorGUILayout.TextField("ID Nhân vật (Unique ID)", charId);
+                    charName = EditorGUILayout.TextField("Tên Nhân vật", charName);
+                    element = (ElementType)EditorGUILayout.EnumPopup("Thuộc tính (Element)", element);
+                    avatar = (Sprite)EditorGUILayout.ObjectField("Ảnh đại diện (Avatar)", avatar, typeof(Sprite), false);
+                    themeColor = EditorGUILayout.ColorField("Màu chủ đạo (Theme Color)", themeColor);
+
+                    GUILayout.Space(15);
+
+                    // 2. Stats
+                    GUILayout.Label("2. Chỉ số chiến đấu (Stats)", EditorStyles.boldLabel);
+                    maxHP = EditorGUILayout.FloatField("Máu tối đa (Max HP)", maxHP);
+                    atk = EditorGUILayout.FloatField("Sức tấn công (ATK)", atk);
+                    def = EditorGUILayout.FloatField("Sức phòng thủ (DEF)", def);
+                    speed = EditorGUILayout.FloatField("Tốc độ (Speed)", speed);
+                    critRate = EditorGUILayout.Slider("Tỷ lệ bạo kích (Crit Rate)", critRate, 0f, 1f);
+                    critDmg = EditorGUILayout.Slider("Sát thương bạo kích (Crit DMG)", critDmg, 1f, 5f);
+                    break;
+
+                case 1: // Mô hình & Hoạt ảnh
+                    GUILayout.Label("3. Mô hình & Hoạt ảnh (Model & Animations)", EditorStyles.boldLabel);
+                    modelPrefab = (GameObject)EditorGUILayout.ObjectField("Mô hình 3D (Character Model Prefab)", modelPrefab, typeof(GameObject), false);
+                    
+                    EditorGUILayout.HelpBox("Kéo thả các Clip hoạt ảnh (Animations) tương ứng bên dưới. Animator Controller sẽ tự động liên kết các hoạt ảnh này.", MessageType.None);
+                    idleClip = (AnimationClip)EditorGUILayout.ObjectField("Đứng yên (Idle Clip)", idleClip, typeof(AnimationClip), false);
+                    runClip = (AnimationClip)EditorGUILayout.ObjectField("Chạy đến (Run Clip)", runClip, typeof(AnimationClip), false);
+                    attack1Clip = (AnimationClip)EditorGUILayout.ObjectField("Tấn công thường - Chiêu 1 (Attack 1 Clip)", attack1Clip, typeof(AnimationClip), false);
+                    attack2Clip = (AnimationClip)EditorGUILayout.ObjectField("Tấn công đặc biệt - Chiêu 2 (Attack 2 Clip)", attack2Clip, typeof(AnimationClip), false);
+                    ultimateClip = (AnimationClip)EditorGUILayout.ObjectField("Chiêu cuối - Ultimate Clip", ultimateClip, typeof(AnimationClip), false);
+                    defendClip = (AnimationClip)EditorGUILayout.ObjectField("Phòng thủ - Defend Clip", defendClip, typeof(AnimationClip), false);
+                    hitClip = (AnimationClip)EditorGUILayout.ObjectField("Bị tấn công (Hit Clip)", hitClip, typeof(AnimationClip), false);
+                    dieClip = (AnimationClip)EditorGUILayout.ObjectField("Chết (Die Clip)", dieClip, typeof(AnimationClip), false);
+                    break;
+
+                case 2: // Hiệu ứng VFX
+                    GUILayout.Label("4. Hiệu ứng kỹ năng (VFX)", EditorStyles.boldLabel);
+                    EditorGUILayout.HelpBox("Kéo thả các Prefab hiệu ứng tương ứng bên dưới để hiển thị tại runtime.", MessageType.None);
+                    turnVFXPrefab = (GameObject)EditorGUILayout.ObjectField("VFX Lượt Đi (Turn Start/Idle)", turnVFXPrefab, typeof(GameObject), false);
+                    basicAttackImpactVFX = (GameObject)EditorGUILayout.ObjectField("VFX Đòn Đánh Thường (Basic Impact)", basicAttackImpactVFX, typeof(GameObject), false);
+                    specialAttackImpactVFX = (GameObject)EditorGUILayout.ObjectField("VFX Chiêu Đặc Biệt (Special Impact)", specialAttackImpactVFX, typeof(GameObject), false);
+                    ultimateVFX = (GameObject)EditorGUILayout.ObjectField("VFX Chiêu Cuối (Ultimate VFX)", ultimateVFX, typeof(GameObject), false);
+                    break;
+
+                case 3: // Tính năng nhanh
+                    GUILayout.Label("5. Các tính năng phát triển nhanh (Developer Tools)", EditorStyles.boldLabel);
+                    EditorGUILayout.HelpBox("Nhấp vào nút dưới đây để tạo tự động 4 nhân vật mặc định hỗ trợ hệ thống turn-based (Kazuko, Hoshi, Rin, Mei) cùng các file data chỉ số, kỹ năng và prefab hoàn chỉnh vào thư mục Resources.", MessageType.Info);
+                    
+                    GUILayout.Space(15);
+                    if (GUILayout.Button("KHỞI TẠO NHANH 4 NHÂN VẬT DEMO", GUILayout.Height(50)))
+                    {
+                        SpawnDefaultCharacters();
+                    }
+                    break;
+            }
+
+            // Vẽ nút Build Character cho các Tab điền thông tin (Tab 0, 1, 2)
+            if (tabIndex >= 0 && tabIndex <= 2)
+            {
+                GUILayout.Space(25);
+                if (GUILayout.Button($"Tạo Nhân Vật: {charName} (Build Character)", GUILayout.Height(45)))
+                {
+                    BuildCharacter();
+                }
             }
 
             EditorGUILayout.EndScrollView();

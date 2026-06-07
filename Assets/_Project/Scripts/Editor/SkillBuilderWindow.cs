@@ -21,7 +21,8 @@ namespace RPG.Combat
         private SkillType activeSkillSlot = SkillType.BASIC;
         private SkillEnhancement activeEnhanceEdit;
 
-        private Vector2 scrollPos;
+        private Vector2 leftScrollPos;
+        private Vector2 rightScrollPos;
         private List<CharacterData> allCharacters = new List<CharacterData>();
         private string[] characterNames;
         private int selectedCharIndex = 0;
@@ -52,21 +53,35 @@ namespace RPG.Combat
             GUILayout.Label("RPG SKILL BUILDER & RECOLLECTION MATRIX", EditorStyles.boldLabel);
             EditorGUILayout.HelpBox("Công cụ này cho phép Game Designer cấu hình kỹ năng và thiết lập Ma trận cường hóa (40 kết hợp nguyên tố) dưới dạng ScriptableObject.", MessageType.Info);
 
-            GUILayout.Space(10);
-
-            if (GUILayout.Button("Quét danh sách nhân vật", GUILayout.Height(25)))
-            {
-                ScanForCharacters();
-            }
+            GUILayout.Space(5);
 
             if (allCharacters.Count == 0)
             {
+                if (GUILayout.Button("Quét danh sách nhân vật", GUILayout.Height(25)))
+                {
+                    ScanForCharacters();
+                }
                 EditorGUILayout.HelpBox("Không tìm thấy CharacterData nào trong thư mục Resources/Characters!", MessageType.Warning);
                 return;
             }
 
-            // Chọn nhân vật
-            int newIdx = EditorGUILayout.Popup("Chọn nhân vật: ", selectedCharIndex, characterNames);
+            // Chia cột
+            EditorGUILayout.BeginHorizontal();
+
+            // ==================== CỘT TRÁI (MA TRẬN & FILE) ====================
+            EditorGUILayout.BeginVertical(GUI.skin.box, GUILayout.Width(position.width * 0.54f));
+            leftScrollPos = EditorGUILayout.BeginScrollView(leftScrollPos);
+
+            EditorGUILayout.LabelField("1. CHỌN NHÂN VẬT & CONFIG FILE", EditorStyles.boldLabel);
+            
+            EditorGUILayout.BeginHorizontal();
+            int newIdx = EditorGUILayout.Popup("Nhân vật: ", selectedCharIndex, characterNames, GUILayout.ExpandWidth(true));
+            if (GUILayout.Button("Refresh List", GUILayout.Width(90)))
+            {
+                ScanForCharacters();
+            }
+            EditorGUILayout.EndHorizontal();
+
             if (newIdx != selectedCharIndex || selectedChar == null)
             {
                 selectedCharIndex = newIdx;
@@ -74,138 +89,148 @@ namespace RPG.Combat
                 LoadRecollectionDataForSelectedChar();
             }
 
-            if (selectedChar == null) return;
-
-            GUILayout.Box("", GUILayout.ExpandWidth(true), GUILayout.Height(1)); // Dòng kẻ ngang
-
-            scrollPos = EditorGUILayout.BeginScrollView(scrollPos);
-
-            // Phần 1: Thông tin nhân vật
-            EditorGUILayout.LabelField("1. THÔNG TIN NHÂN VẬT", EditorStyles.boldLabel);
-            EditorGUILayout.LabelField($"Tên nhân vật: {selectedChar.characterName}");
-            EditorGUILayout.LabelField($"Nguyên tố gốc: {selectedChar.element}");
-            EditorGUILayout.LabelField($"Vai trò: {selectedChar.role}");
-
-            GUILayout.Space(10);
-
-            // Phần 2: Quản lý File RecollectionData ScriptableObject
-            EditorGUILayout.LabelField("2. FILE RECOLLECTION DATA CONFIG", EditorStyles.boldLabel);
-            if (selectedRecData == null)
+            if (selectedChar != null)
             {
-                EditorGUILayout.HelpBox($"Không tìm thấy file RecollectionData cho {selectedChar.characterName} tại Resources/RecollectionData/!", MessageType.Warning);
-                if (GUILayout.Button($"Tạo mới RecollectionData cho {selectedChar.characterName}", GUILayout.Height(30)))
+                EditorGUILayout.HelpBox($"Nhân vật: {selectedChar.characterName} | Nguyên tố: {selectedChar.element} | Vai trò: {selectedChar.role}", MessageType.None);
+
+                GUILayout.Space(10);
+
+                if (selectedRecData == null)
                 {
-                    CreateNewRecollectionData();
+                    EditorGUILayout.HelpBox($"Không tìm thấy file RecollectionData cho {selectedChar.characterName} tại Resources/RecollectionData/!", MessageType.Warning);
+                    if (GUILayout.Button($"Tạo mới RecollectionData cho {selectedChar.characterName}", GUILayout.Height(30)))
+                    {
+                        CreateNewRecollectionData();
+                    }
                 }
+                else
+                {
+                    EditorGUILayout.ObjectField("File config: ", selectedRecData, typeof(RecollectionData), false);
+
+                    GUILayout.Space(15);
+
+                    // Ma trận Cường hóa (Matrix Grid 4x2)
+                    EditorGUILayout.LabelField("2. MA TRẬN CƯỜNG HÓA NGUYÊN TỐ", EditorStyles.boldLabel);
+                    EditorGUILayout.HelpBox("Chọn ô trong ma trận bên dưới để sửa chi tiết hiệu ứng cường hóa kỹ năng ở cột bên phải.", MessageType.None);
+
+                    ElementType[] allyElements = new ElementType[] { ElementType.Fire, ElementType.Ice, ElementType.Lightning, ElementType.Nature };
+                    SkillType[] slots = new SkillType[] { SkillType.BASIC, SkillType.SPECIAL };
+
+                    // Vẽ Table Header
+                    EditorGUILayout.BeginHorizontal();
+                    GUILayout.Label("Đồng Minh", EditorStyles.boldLabel, GUILayout.Width(75));
+                    GUILayout.Label("Basic Skill (Skill 1)", EditorStyles.boldLabel, GUILayout.Width(130));
+                    GUILayout.Label("Special Skill (Skill 2)", EditorStyles.boldLabel, GUILayout.Width(130));
+                    EditorGUILayout.EndHorizontal();
+
+                    foreach (var el in allyElements)
+                    {
+                        EditorGUILayout.BeginHorizontal();
+                        GUILayout.Label(el.ToString(), EditorStyles.boldLabel, GUILayout.Width(75));
+
+                        foreach (var slot in slots)
+                        {
+                            SkillEnhancement enh = selectedRecData.GetEnhancement(el, slot);
+                            string btnText = enh != null && !string.IsNullOrEmpty(enh.enhancementName) 
+                                ? $"{enh.enhancementName}" 
+                                : "[ + Tạo mới ]";
+                            
+                            GUI.color = (activeAllyElement == el && activeSkillSlot == slot) ? Color.yellow : (enh != null && !string.IsNullOrEmpty(enh.enhancementName) ? Color.green : Color.white);
+
+                            if (GUILayout.Button(btnText, GUILayout.Width(130), GUILayout.Height(28)))
+                            {
+                                activeAllyElement = el;
+                                activeSkillSlot = slot;
+                                
+                                if (enh == null)
+                                {
+                                    enh = new SkillEnhancement();
+                                    enh.allyElement = el;
+                                    enh.skillSlot = slot;
+                                    selectedRecData.enhancedSkillMatrix.Add(enh);
+                                }
+                                activeEnhanceEdit = enh;
+                            }
+                        }
+                        GUI.color = Color.white;
+                        EditorGUILayout.EndHorizontal();
+                    }
+                }
+            }
+
+            EditorGUILayout.EndScrollView();
+            EditorGUILayout.EndVertical();
+
+            GUILayout.Space(8);
+
+            // ==================== CỘT PHẢI (CHỈNH SỬA CHI TIẾT) ====================
+            EditorGUILayout.BeginVertical(GUI.skin.box, GUILayout.Width(position.width * 0.42f));
+            rightScrollPos = EditorGUILayout.BeginScrollView(rightScrollPos);
+
+            if (selectedChar == null)
+            {
+                EditorGUILayout.HelpBox("Hãy chọn một nhân vật ở cột bên trái để bắt đầu.", MessageType.Info);
+            }
+            else if (selectedRecData == null)
+            {
+                EditorGUILayout.HelpBox("Hãy tạo/liên kết file RecollectionData ở cột bên trái trước.", MessageType.Info);
+            }
+            else if (activeEnhanceEdit == null)
+            {
+                EditorGUILayout.HelpBox("Chọn một ô trong Ma trận ở cột bên trái để cấu hình hiệu ứng.", MessageType.Info);
             }
             else
             {
-                EditorGUILayout.ObjectField("Đang chỉnh sửa file: ", selectedRecData, typeof(RecollectionData), false);
+                // Tiêu đề của bảng cấu hình
+                EditorGUILayout.LabelField("3. BẢNG CẤU HÌNH CHI TIẾT", EditorStyles.boldLabel);
+                GUILayout.Label($"[{selectedChar.element} Chỉ Huy] x [{activeAllyElement} Đồng Minh]\nKỹ năng: {activeSkillSlot}", EditorStyles.boldLabel);
+                GUILayout.Box("", GUILayout.ExpandWidth(true), GUILayout.Height(1)); // Dòng kẻ ngang
+
+                activeEnhanceEdit.enhancementName = EditorGUILayout.TextField("Tên Cường Hóa: ", activeEnhanceEdit.enhancementName);
                 
-                GUILayout.Space(15);
+                GUILayout.Label("Mô tả hiệu ứng cường hóa:");
+                activeEnhanceEdit.description = EditorGUILayout.TextArea(activeEnhanceEdit.description, GUILayout.Height(60));
 
-                // Phần 3: Ma trận Cường hóa (Matrix Grid 4x2)
-                EditorGUILayout.LabelField("3. MA TRẬN CƯỜNG HÓA NGUYÊN TỐ (Chỉ Huy x Đồng Minh)", EditorStyles.boldLabel);
-                EditorGUILayout.HelpBox("Chọn ô trong ma trận để cấu hình hiệu ứng cường hóa khi nhân vật này làm Chỉ Huy, truyền nguyên tố vào skill của đồng minh hàng trước.", MessageType.None);
+                activeEnhanceEdit.damageMultiplierBonus = EditorGUILayout.FloatField("Hệ số DMG cộng thêm: ", activeEnhanceEdit.damageMultiplierBonus);
+                activeEnhanceEdit.specialCondition = EditorGUILayout.TextField("Nhãn điều kiện đặc biệt: ", activeEnhanceEdit.specialCondition);
+                activeEnhanceEdit.specialValue = EditorGUILayout.FloatField("Giá trị điều kiện đặc biệt: ", activeEnhanceEdit.specialValue);
 
-                ElementType[] allyElements = new ElementType[] { ElementType.Fire, ElementType.Ice, ElementType.Lightning, ElementType.Nature };
-                SkillType[] slots = new SkillType[] { SkillType.BASIC, SkillType.SPECIAL };
-
-                // Vẽ Table Header
-                EditorGUILayout.BeginHorizontal();
-                GUILayout.Label("Đồng Minh Element", EditorStyles.boldLabel, GUILayout.Width(130));
-                GUILayout.Label("Basic Skill (Skill 1)", EditorStyles.boldLabel, GUILayout.Width(200));
-                GUILayout.Label("Special Skill (Skill 2)", EditorStyles.boldLabel, GUILayout.Width(200));
-                EditorGUILayout.EndHorizontal();
-
-                foreach (var el in allyElements)
+                // Danh sách Effect bổ sung
+                GUILayout.Space(10);
+                GUILayout.Label("Hiệu ứng EffectData cộng kèm:", EditorStyles.boldLabel);
+                
+                if (activeEnhanceEdit.additionalEffects == null)
                 {
-                    EditorGUILayout.BeginHorizontal();
-                    GUILayout.Label(el.ToString(), EditorStyles.boldLabel, GUILayout.Width(130));
-
-                    foreach (var slot in slots)
-                    {
-                        SkillEnhancement enh = selectedRecData.GetEnhancement(el, slot);
-                        string btnText = enh != null && !string.IsNullOrEmpty(enh.enhancementName) 
-                            ? $"{enh.enhancementName}" 
-                            : "[ + Cấu hình mới ]";
-                        
-                        GUI.color = (activeAllyElement == el && activeSkillSlot == slot) ? Color.yellow : (enh != null && !string.IsNullOrEmpty(enh.enhancementName) ? Color.green : Color.white);
-
-                        if (GUILayout.Button(btnText, GUILayout.Width(200), GUILayout.Height(30)))
-                        {
-                            activeAllyElement = el;
-                            activeSkillSlot = slot;
-                            
-                            if (enh == null)
-                            {
-                                enh = new SkillEnhancement();
-                                enh.allyElement = el;
-                                enh.skillSlot = slot;
-                                selectedRecData.enhancedSkillMatrix.Add(enh);
-                            }
-                            activeEnhanceEdit = enh;
-                        }
-                    }
-                    GUI.color = Color.white;
-                    EditorGUILayout.EndHorizontal();
+                    activeEnhanceEdit.additionalEffects = new List<EffectData>();
                 }
 
-                GUILayout.Space(20);
+                int count = EditorGUILayout.IntField("Số lượng Effect: ", activeEnhanceEdit.additionalEffects.Count);
+                while (count > activeEnhanceEdit.additionalEffects.Count) activeEnhanceEdit.additionalEffects.Add(null);
+                while (count < activeEnhanceEdit.additionalEffects.Count) activeEnhanceEdit.additionalEffects.RemoveAt(activeEnhanceEdit.additionalEffects.Count - 1);
 
-                // Phần 4: Panel cấu hình chi tiết cho ô đang chọn
-                if (activeEnhanceEdit != null)
+                for (int i = 0; i < activeEnhanceEdit.additionalEffects.Count; i++)
                 {
-                    EditorGUILayout.BeginVertical(GUI.skin.box);
-                    GUILayout.Label($"BẢNG CẤU HÌNH CHI TIẾT: [{selectedChar.element} Chỉ Huy] x [{activeAllyElement} Đồng Minh] - {activeSkillSlot}", EditorStyles.boldLabel);
-
-                    activeEnhanceEdit.enhancementName = EditorGUILayout.TextField("Tên Cường Hóa: ", activeEnhanceEdit.enhancementName);
-                    
-                    GUILayout.Label("Mô tả hiệu ứng cường hóa:");
-                    activeEnhanceEdit.description = EditorGUILayout.TextArea(activeEnhanceEdit.description, GUILayout.Height(50));
-
-                    activeEnhanceEdit.damageMultiplierBonus = EditorGUILayout.FloatField("Hệ số Nhân Sát Thương Cộng Thêm: ", activeEnhanceEdit.damageMultiplierBonus);
-                    activeEnhanceEdit.specialCondition = EditorGUILayout.TextField("Nhãn Điều Kiện Đặc Biệt (Condition): ", activeEnhanceEdit.specialCondition);
-                    activeEnhanceEdit.specialValue = EditorGUILayout.FloatField("Giá Trị Điều Kiện Đặc Biệt (Value): ", activeEnhanceEdit.specialValue);
-
-                    // Danh sách Effect bổ sung
-                    GUILayout.Space(10);
-                    GUILayout.Label("Các hiệu ứng EffectData cộng kèm (Kéo thả asset vào đây):", EditorStyles.boldLabel);
-                    
-                    if (activeEnhanceEdit.additionalEffects == null)
-                    {
-                        activeEnhanceEdit.additionalEffects = new List<EffectData>();
-                    }
-
-                    int count = EditorGUILayout.IntField("Số lượng Effect: ", activeEnhanceEdit.additionalEffects.Count);
-                    while (count > activeEnhanceEdit.additionalEffects.Count) activeEnhanceEdit.additionalEffects.Add(null);
-                    while (count < activeEnhanceEdit.additionalEffects.Count) activeEnhanceEdit.additionalEffects.RemoveAt(activeEnhanceEdit.additionalEffects.Count - 1);
-
-                    for (int i = 0; i < activeEnhanceEdit.additionalEffects.Count; i++)
-                    {
-                        activeEnhanceEdit.additionalEffects[i] = (EffectData)EditorGUILayout.ObjectField($"Effect {i + 1}: ", activeEnhanceEdit.additionalEffects[i], typeof(EffectData), false);
-                    }
-
-                    EditorGUILayout.EndVertical();
+                    activeEnhanceEdit.additionalEffects[i] = (EffectData)EditorGUILayout.ObjectField($"Effect {i + 1}: ", activeEnhanceEdit.additionalEffects[i], typeof(EffectData), false);
                 }
 
                 GUILayout.Space(20);
 
                 // Nút Lưu và Validation
-                EditorGUILayout.BeginHorizontal();
-                if (GUILayout.Button("LƯU CẤU HÌNH (EXPORT ASSET)", GUILayout.Height(40)))
+                if (GUILayout.Button("LƯU CẤU HÌNH (EXPORT)", GUILayout.Height(35)))
                 {
                     SaveConfiguration();
                 }
 
-                if (GUILayout.Button("Duplicate (Nhân Bản Base)", GUILayout.Height(40)))
+                if (GUILayout.Button("Nhân Bản Cấu Hình (Duplicate)", GUILayout.Height(30)))
                 {
                     DuplicateSelectedConfiguration();
                 }
-                EditorGUILayout.EndHorizontal();
             }
 
             EditorGUILayout.EndScrollView();
+            EditorGUILayout.EndVertical();
+
+            EditorGUILayout.EndHorizontal();
         }
 
         private void LoadRecollectionDataForSelectedChar()

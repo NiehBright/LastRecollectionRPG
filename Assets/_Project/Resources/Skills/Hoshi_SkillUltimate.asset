@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 19d87fbd90606144db3ed1993019b287, type: 3}
   m_Name: Hoshi_SkillUltimate
   m_EditorClassIdentifier: Assembly-CSharp::RPG.Combat.SkillData
-  skillId: Hoshi_Test_ultimate
+  skillId: Hoshi_character_ultimate
   skillName: "Chi\xEAu Cu\u1ED1i (Ultimate)"
   description: "Chi\xEAu cu\u1ED1i h\u1EE7y di\u1EC7t g\xE2y s\xE1t th\u01B0\u01A1ng
     di\u1EC7n r\u1ED9ng c\u1EF1c l\u1EDBn."
@@ -25,3 +25,5 @@ MonoBehaviour:
   effects: []
   skillColor: {r: 1, g: 0, b: 0, a: 1}
   animDuration: 1
+  skillClip: {fileID: -6633077001092557518, guid: e97f1d3805faec548864fb851ad1683a, type: 3}
+  skillImpactVFX: {fileID: 0}

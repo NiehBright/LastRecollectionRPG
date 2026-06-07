@@ -10,9 +10,9 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 19d87fbd90606144db3ed1993019b287, type: 3}
-  m_Name: Hoshi_SkillSpecial
+  m_Name: Rin_SkillSpecial
   m_EditorClassIdentifier: Assembly-CSharp::RPG.Combat.SkillData
-  skillId: Hoshi_character_special
+  skillId: char_rin_special
   skillName: "K\u1EF9 N\u0103ng \u0110\u1EB7c Bi\u1EC7t"
   description: "B\u1ED9c ph\xE1t k\u1EF9 n\u0103ng g\xE2y s\xE1t th\u01B0\u01A1ng
     l\u1EDBn v\xE0 t\u1EA1o hi\u1EC7u \u1EE9ng \u0111\u1EB7c bi\u1EC7t l\xEAn m\u1EE5c
@@ -26,5 +26,5 @@ MonoBehaviour:
   effects: []
   skillColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
   animDuration: 1
-  skillClip: {fileID: 4189676145174806922, guid: fc1c79643abed12489ff86dbb5e92898, type: 3}
+  skillClip: {fileID: 0}
   skillImpactVFX: {fileID: 0}

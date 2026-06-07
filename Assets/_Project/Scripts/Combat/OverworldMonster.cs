@@ -18,6 +18,16 @@ namespace RPG.Combat
 
         private bool triggered = false;
 
+#if UNITY_EDITOR
+        private void OnValidate()
+        {
+            if (string.IsNullOrEmpty(uniqueId) || uniqueId == "monster_01")
+            {
+                uniqueId = "monster_" + System.Guid.NewGuid().ToString().Substring(0, 8) + "_" + gameObject.name.Replace(" ", "_");
+            }
+        }
+#endif
+
         private void Start()
         {
             // Kiểm tra xem quái vật này đã bị tiêu diệt ở lượt trước chưa

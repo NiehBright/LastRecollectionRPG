@@ -10,20 +10,20 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 19d87fbd90606144db3ed1993019b287, type: 3}
-  m_Name: Hoshi_SkillBasic
+  m_Name: Kazuko_SkillUltimate
   m_EditorClassIdentifier: Assembly-CSharp::RPG.Combat.SkillData
-  skillId: Hoshi_character_basic
-  skillName: "T\u1EA5n C\xF4ng Th\u01B0\u1EDDng"
-  description: "G\xE2y s\xE1t th\u01B0\u01A1ng v\u1EADt l\xFD/thu\u1ED9c t\xEDnh
-    chu\u1EA9n l\xEAn m\u1ED9t m\u1EE5c ti\xEAu."
-  skillType: 0
+  skillId: Kazuko_character_ultimate
+  skillName: "Chi\xEAu Cu\u1ED1i (Ultimate)"
+  description: "Chi\xEAu cu\u1ED1i h\u1EE7y di\u1EC7t g\xE2y s\xE1t th\u01B0\u01A1ng
+    di\u1EC7n r\u1ED9ng c\u1EF1c l\u1EDBn."
+  skillType: 2
   cooldown: 0
-  damageMultiplier: 1
-  targetType: 0
-  energyCost: 0
-  energyGenerated: 10
+  damageMultiplier: 2.2
+  targetType: 1
+  energyCost: 100
+  energyGenerated: 0
   effects: []
-  skillColor: {r: 1, g: 1, b: 1, a: 1}
+  skillColor: {r: 1, g: 0, b: 0, a: 1}
   animDuration: 1
-  skillClip: {fileID: -4304836385353429653, guid: 9bd717dfec15bbb4b899cbb1bcf8b78f, type: 3}
+  skillClip: {fileID: 7400000, guid: 89b083c3cdd6cb64d906f6bbfcb40211, type: 3}
   skillImpactVFX: {fileID: 0}
