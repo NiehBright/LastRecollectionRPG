@@ -41,6 +41,8 @@ namespace RPG.Combat
         public Color groundColor = new Color(0.12f, 0.15f, 0.2f);
         public Color cameraBackgroundColor = new Color(0.06f, 0.08f, 0.1f);
         public GameObject showroomEnvironmentPrefab; // Kéo thả prefab môi trường showroom tùy chọn
+        public GameObject pedestalPrefab;      // Kéo thả Prefab Bệ đá ở đây để đổi bệ đứng
+        public GameObject backgroundPrefab;    // Kéo thả Prefab Phông nền ở đây để đổi phông
 
         private bool isMenuOpen = false;
         private GameObject spawnedUIInstance;
@@ -812,17 +814,48 @@ namespace RPG.Combat
             }
             else
             {
-                GameObject ground = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                ground.name = "ShowroomGround";
-                ground.transform.SetParent(showroomRoot.transform);
-                ground.transform.localPosition = new Vector3(0f, -0.1f, 0f);
-                ground.transform.localScale = new Vector3(3f, 0.1f, 3f);
-                Destroy(ground.GetComponent<Collider>()); // Xóa collider
+                if (pedestalPrefab != null)
+                {
+                    GameObject ped = Instantiate(pedestalPrefab, showroomRoot.transform);
+                    ped.transform.localPosition = Vector3.zero;
+                }
+                else
+                {
+                    GameObject ground = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                    ground.name = "ShowroomGround";
+                    ground.transform.SetParent(showroomRoot.transform);
+                    ground.transform.localPosition = new Vector3(0f, -0.05f, 0f);
+                    ground.transform.localScale = new Vector3(1.5f, 0.05f, 1.5f);
+                    DestroyImmediate(ground.GetComponent<Collider>()); // Xóa collider
 
-                Renderer gr = ground.GetComponent<Renderer>();
-                Material gm = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-                gm.color = groundColor;
-                gr.material = gm;
+                    Renderer gr = ground.GetComponent<Renderer>();
+                    Material gm = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+                    gm.color = new Color(0.22f, 0.24f, 0.28f); // Màu xám đá tối
+                    gr.material = gm;
+                }
+            }
+
+            // 2.1. Tạo phông nền (Background)
+            if (backgroundPrefab != null)
+            {
+                GameObject bgGO = Instantiate(backgroundPrefab, showroomRoot.transform);
+                bgGO.transform.localPosition = new Vector3(0f, 0f, 3.5f);
+                bgGO.transform.localRotation = Quaternion.identity;
+            }
+            else
+            {
+                GameObject wall = GameObject.CreatePrimitive(PrimitiveType.Plane);
+                wall.name = "DefaultBackgroundWall";
+                wall.transform.SetParent(showroomRoot.transform);
+                wall.transform.localPosition = new Vector3(0f, 2f, 4f); // Phía sau nhân vật
+                wall.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f); // Dựng đứng
+                wall.transform.localScale = new Vector3(5f, 1f, 3f);
+                DestroyImmediate(wall.GetComponent<Collider>());
+                
+                Renderer wr = wall.GetComponent<Renderer>();
+                Material wm = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+                wm.color = new Color(0.04f, 0.05f, 0.07f); // Màu tối sẫm sang trọng
+                wr.material = wm;
             }
 
             // 3. Tạo Showroom Camera
@@ -898,19 +931,19 @@ namespace RPG.Combat
                 spawnedShowroomModel.transform.localScale = Vector3.one * modelScale;
 
                 // Tắt các script di chuyển và va chạm trên toàn bộ hierarchy để tránh lỗi showroom và rơi tự do
-                foreach (var wasd in spawnedShowroomModel.GetComponentsInChildren<TopDownWASDController>()) { wasd.enabled = false; Destroy(wasd); }
-                foreach (var combat in spawnedShowroomModel.GetComponentsInChildren<CombatController>()) { combat.enabled = false; Destroy(combat); }
-                foreach (var cc in spawnedShowroomModel.GetComponentsInChildren<CombatCharacter>()) { cc.enabled = false; Destroy(cc); }
-                foreach (var characterController in spawnedShowroomModel.GetComponentsInChildren<CharacterController>()) { characterController.enabled = false; Destroy(characterController); }
+                foreach (var wasd in spawnedShowroomModel.GetComponentsInChildren<TopDownWASDController>()) { wasd.enabled = false; DestroyImmediate(wasd); }
+                foreach (var combat in spawnedShowroomModel.GetComponentsInChildren<CombatController>()) { combat.enabled = false; DestroyImmediate(combat); }
+                foreach (var cc in spawnedShowroomModel.GetComponentsInChildren<CombatCharacter>()) { cc.enabled = false; DestroyImmediate(cc); }
+                foreach (var characterController in spawnedShowroomModel.GetComponentsInChildren<CharacterController>()) { characterController.enabled = false; DestroyImmediate(characterController); }
                 foreach (var rb in spawnedShowroomModel.GetComponentsInChildren<Rigidbody>())
                 {
                     rb.isKinematic = true;
                     rb.useGravity = false;
                     rb.linearVelocity = Vector3.zero;
                     rb.angularVelocity = Vector3.zero;
-                    Destroy(rb);
+                    DestroyImmediate(rb);
                 }
-                foreach (var col in spawnedShowroomModel.GetComponentsInChildren<Collider>()) { col.enabled = false; Destroy(col); }
+                foreach (var col in spawnedShowroomModel.GetComponentsInChildren<Collider>()) { col.enabled = false; DestroyImmediate(col); }
 
                 // Kích hoạt animation Idle của model thật (nếu có Animator và Controller hợp lệ)
                 Animator anim = spawnedShowroomModel.GetComponentInChildren<Animator>();

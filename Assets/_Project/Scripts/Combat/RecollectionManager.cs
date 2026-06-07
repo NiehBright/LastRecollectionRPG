@@ -18,6 +18,9 @@ namespace RPG.Combat
         private Vector3 commanderOriginalPos;
         private GameObject spawnedAuraVFX;
 
+        // Lưu vị trí ban đầu của toàn bộ đồng đội trước khi dịch chuyển
+        private Dictionary<CombatCharacter, Vector3> initialAllyPositions = new Dictionary<CombatCharacter, Vector3>();
+
         // Các Sự Kiện
         public event Action<CombatCharacter> OnRecollectionActivated;
         public event Action<int> OnRecollectionTurnSpent;
@@ -57,8 +60,51 @@ namespace RPG.Combat
                 CombatManager.Instance.turnQueue.RemoveCharacter(commander);
             }
 
-            // Di chuyển lùi về hàng sau (Back Row) bằng Coroutine (0.8s)
-            StartCoroutine(CoMoveToPosition(commander, commanderOriginalPos - commander.transform.forward * 3f, 0.8f));
+            // Lưu vị trí ban đầu của tất cả đồng minh
+            initialAllyPositions.Clear();
+            if (CombatManager.Instance != null && CombatManager.Instance.allies != null)
+            {
+                foreach (var ally in CombatManager.Instance.allies)
+                {
+                    if (ally != null)
+                    {
+                        initialAllyPositions[ally] = ally.transform.position;
+                    }
+                }
+            }
+
+            // Di chuyển Chỉ Huy lùi về chính giữa hàng sau (0.8s)
+            Vector3 commanderTargetPos = new Vector3(0f, commander.transform.position.y, -7.5f);
+            commander.SetOriginalPosition(commanderTargetPos);
+            StartCoroutine(CoMoveToPosition(commander, commanderTargetPos, 0.8f));
+
+            // Xác định các đồng minh còn sống khác để sắp xếp hàng trước (tam giác)
+            List<CombatCharacter> otherAliveAllies = new List<CombatCharacter>();
+            if (CombatManager.Instance != null && CombatManager.Instance.allies != null)
+            {
+                foreach (var ally in CombatManager.Instance.allies)
+                {
+                    if (ally != null && ally != commander && !ally.isDead)
+                    {
+                        otherAliveAllies.Add(ally);
+                    }
+                }
+            }
+
+            // Sắp xếp các đồng minh này theo tọa độ X tăng dần để giữ thứ tự trái/phải
+            otherAliveAllies.Sort((a, b) => a.transform.position.x.CompareTo(b.transform.position.x));
+
+            // Lấy các vị trí hàng trước và di chuyển
+            Vector3[] frontPositions = GetAllyFrontRowPositions(otherAliveAllies.Count);
+            for (int i = 0; i < otherAliveAllies.Count; i++)
+            {
+                CombatCharacter ally = otherAliveAllies[i];
+                Vector3 targetPos = frontPositions[i];
+                targetPos.y = ally.transform.position.y; // Giữ nguyên Y
+
+                ally.SetOriginalPosition(targetPos);
+                StartCoroutine(CoMoveToPosition(ally, targetPos, 0.8f));
+            }
 
             // Tạo hiệu ứng Aura chân nguyên tố (Procedural)
             SpawnCommanderAura(commander);
@@ -77,7 +123,7 @@ namespace RPG.Combat
         }
 
         /// <summary>
-        /// Hủy kích hoạt Recollection, đưa Chỉ Huy về vị trí cũ
+        /// Hủy kích hoạt Recollection, đưa tất cả nhân vật về vị trí cũ
         /// </summary>
         public void DeactivateRecollection()
         {
@@ -86,15 +132,33 @@ namespace RPG.Combat
             CombatCharacter oldCommander = activeCommander;
             oldCommander.isCommander = false;
 
-            // Di chuyển trở lại Front Row (0.6s)
-            StartCoroutine(CoMoveToPosition(oldCommander, commanderOriginalPos, 0.6f));
-
             // Đưa trở lại hàng chờ TurnQueue và reset Action Value
             if (CombatManager.Instance != null && CombatManager.Instance.turnQueue != null)
             {
                 CombatManager.Instance.turnQueue.AddCharacter(oldCommander);
                 CombatManager.Instance.turnQueue.ResetCharacterAV(oldCommander);
             }
+
+            // Khôi phục vị trí của tất cả đồng minh
+            foreach (var kvp in initialAllyPositions)
+            {
+                CombatCharacter ally = kvp.Key;
+                Vector3 originalPos = kvp.Value;
+                if (ally != null)
+                {
+                    ally.SetOriginalPosition(originalPos);
+                    if (!ally.isDead && ally.gameObject.activeInHierarchy)
+                    {
+                        StartCoroutine(CoMoveToPosition(ally, originalPos, 0.6f));
+                    }
+                    else
+                    {
+                        // Nếu đã chết hoặc inactive thì đặt thẳng vị trí
+                        ally.transform.position = originalPos;
+                    }
+                }
+            }
+            initialAllyPositions.Clear();
 
             // Hủy Aura VFX
             if (spawnedAuraVFX != null)
@@ -267,6 +331,41 @@ namespace RPG.Combat
             {
                 character.transform.position = targetPos;
             }
+        }
+
+        private Vector3[] GetAllyFrontRowPositions(int count)
+        {
+            float z = -4.5f;
+            float zOffset = 0.5f; // Đẩy 2 bên cánh lùi lại một chút
+            Vector3[] pos = new Vector3[count];
+
+            if (count == 1)
+            {
+                pos[0] = new Vector3(0f, 0f, z);
+            }
+            else if (count == 2)
+            {
+                pos[0] = new Vector3(-1.5f, 0f, z);
+                pos[1] = new Vector3(1.5f, 0f, z);
+            }
+            else if (count == 3)
+            {
+                pos[0] = new Vector3(-3.0f, 0f, z - zOffset);
+                pos[1] = new Vector3(0f, 0f, z);
+                pos[2] = new Vector3(3.0f, 0f, z - zOffset);
+            }
+            else if (count > 3)
+            {
+                pos[0] = new Vector3(-4.5f, 0f, z - zOffset);
+                pos[1] = new Vector3(-1.5f, 0f, z);
+                pos[2] = new Vector3(1.5f, 0f, z);
+                pos[3] = new Vector3(4.5f, 0f, z - zOffset);
+                for (int i = 4; i < count; i++)
+                {
+                    pos[i] = new Vector3(1.5f * (i - 1.5f), 0f, z - zOffset * 2);
+                }
+            }
+            return pos;
         }
 
         private void SpawnCommanderAura(CombatCharacter commander)

@@ -72,6 +72,11 @@ namespace RPG.Combat
             }
         }
 
+        public void SetOriginalPosition(Vector3 newPosition)
+        {
+            originalPosition = newPosition;
+        }
+
         public void Initialize(CharacterData data, bool isAllySide)
         {
             characterData = data;
