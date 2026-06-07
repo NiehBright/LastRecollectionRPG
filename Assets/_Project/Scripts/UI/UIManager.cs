@@ -574,8 +574,8 @@ namespace RPG.Combat
                 group.childAlignment = TextAnchor.UpperLeft;
                 group.padding = new RectOffset(8, 8, 8, 8);
                 group.spacing = 3f;
-                group.childControlHeight = true;
-                group.childControlWidth = true;
+                group.childControlHeight = false;
+                group.childControlWidth = false;
                 group.childForceExpandHeight = false;
                 group.childForceExpandWidth = false;
 
@@ -725,10 +725,13 @@ namespace RPG.Combat
                     rbtTxt.color = Color.white;
 
                     // Bật nút nếu đủ 100% gauge và không có Chỉ huy nào đang hoạt động
-                    bool canRecollect = ally.recollectionGauge >= 100f && 
+                    bool canRecollect = ally.recollectionGauge >= 99.9f && 
                                        !ally.isDead && 
                                        RecollectionManager.Instance != null && 
                                        !RecollectionManager.Instance.IsRecollectionActive;
+
+                    // In log ra Console khi vẽ UI để biết lý do tại sao nút bị khóa
+                    Debug.Log($"[RecollectCheck] {ally.characterData.characterName}: Gauge={ally.recollectionGauge:F1}%, isDead={ally.isDead}, ManagerIsNull={(RecollectionManager.Instance == null)}, ActiveRec={((RecollectionManager.Instance != null) ? RecollectionManager.Instance.IsRecollectionActive : false)}, canRec={canRecollect}");
 
                     if (canRecollect)
                     {

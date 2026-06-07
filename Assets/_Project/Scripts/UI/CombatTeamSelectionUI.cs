@@ -39,6 +39,8 @@ namespace RPG.Combat
         public Color groundColor = new Color(0.06f, 0.08f, 0.12f);
         public Color cameraBackgroundColor = new Color(0.05f, 0.06f, 0.08f);
         public GameObject showroomEnvironmentPrefab; // Kéo thả prefab môi trường showroom tùy chọn
+        public GameObject pedestalPrefab;      // Kéo thả Prefab Bệ đá ở đây để đổi bệ đứng
+        public GameObject backgroundPrefab;    // Kéo thả Prefab Phông nền ở đây để đổi phông
 
         private void Awake()
         {
@@ -58,6 +60,9 @@ namespace RPG.Combat
         /// </summary>
         public void OpenUI(OverworldMonster monster)
         {
+#if UNITY_EDITOR
+            CombatEditorUtility.FixAllAnimatorControllers();
+#endif
             currentMonster = monster;
             activeSelectingSlot = -1;
 
@@ -80,9 +85,13 @@ namespace RPG.Combat
 
             for (int i = 0; i < 4; i++)
             {
-                if (slots[i] == null && i < availableList.Count)
+                if (i < availableList.Count)
                 {
                     slots[i] = availableList[i];
+                }
+                else
+                {
+                    slots[i] = null;
                 }
             }
 
@@ -216,10 +225,36 @@ namespace RPG.Combat
                 floor.transform.SetParent(showroomRoot.transform);
                 floor.transform.localPosition = Vector3.zero;
                 floor.transform.localScale = new Vector3(3f, 1f, 3f);
+                DestroyImmediate(floor.GetComponent<Collider>());
+                
                 Renderer r = floor.GetComponent<Renderer>();
                 Material mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
                 mat.color = groundColor;
                 r.material = mat;
+            }
+
+            // 2.1. Tạo Phông nền phía sau (Background)
+            if (backgroundPrefab != null)
+            {
+                GameObject bgGO = Instantiate(backgroundPrefab, showroomRoot.transform);
+                bgGO.transform.localPosition = new Vector3(0f, 0f, 3f); // Phía sau nhân vật
+                bgGO.transform.localRotation = Quaternion.identity;
+            }
+            else
+            {
+                // Tạo một bức tường phông nền mặc định phía sau
+                GameObject wall = GameObject.CreatePrimitive(PrimitiveType.Plane);
+                wall.name = "DefaultBackgroundWall";
+                wall.transform.SetParent(showroomRoot.transform);
+                wall.transform.localPosition = new Vector3(0f, 2f, 3.5f); // Phía sau nhân vật
+                wall.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f); // Dựng đứng
+                wall.transform.localScale = new Vector3(5f, 1f, 3f);
+                DestroyImmediate(wall.GetComponent<Collider>());
+                
+                Renderer wr = wall.GetComponent<Renderer>();
+                Material wm = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+                wm.color = new Color(0.04f, 0.05f, 0.07f); // Màu tối sẫm sang trọng
+                wr.material = wm;
             }
 
             // 3. Tạo Camera
@@ -235,6 +270,10 @@ namespace RPG.Combat
             // 4. Tạo Render Texture
             showroomRT = new RenderTexture(1280, 720, 24);
             showroomCamera.targetTexture = showroomRT;
+            if (showroomRawImage != null)
+            {
+                showroomRawImage.texture = showroomRT;
+            }
         }
 
         private void ClearShowroomModels()
@@ -276,8 +315,36 @@ namespace RPG.Combat
 
                 if (data != null)
                 {
-                    // Thử nạp Prefab nhân vật từ Resources
-                    GameObject prefab = Resources.Load<GameObject>($"Prefabs/Characters/{data.characterName}");
+                    // Tạo Bệ đá cho nhân vật này (nếu có thiết lập, ngược lại tự tạo bệ hình Cylinder xám đá)
+                    GameObject pedestalGO;
+                    if (pedestalPrefab != null)
+                    {
+                        pedestalGO = Instantiate(pedestalPrefab, spawnPos, Quaternion.identity, showroomRoot.transform);
+                    }
+                    else
+                    {
+                        pedestalGO = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                        pedestalGO.name = $"Pedestal_{data.characterName}";
+                        pedestalGO.transform.SetParent(showroomRoot.transform);
+                        pedestalGO.transform.position = spawnPos + new Vector3(0f, -0.05f, 0f);
+                        pedestalGO.transform.localScale = new Vector3(1.2f, 0.05f, 1.2f);
+                        DestroyImmediate(pedestalGO.GetComponent<Collider>());
+                        
+                        Renderer pRend = pedestalGO.GetComponent<Renderer>();
+                        Material pMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+                        pMat.color = new Color(0.25f, 0.27f, 0.3f); // Xám đá tối cổ kính
+                        pRend.material = pMat;
+                    }
+                    spawnedModels.Add(pedestalGO);
+
+                    // Thử nạp Prefab nhân vật từ CharacterMenuManager trước để khớp 100% với model thật, sau đó mới tìm trong Resources
+                    GameObject prefab = null;
+                    if (CharacterMenuManager.Instance != null && CharacterMenuManager.Instance.characters != null)
+                    {
+                        var menuChar = CharacterMenuManager.Instance.characters.Find(c => c.characterName == data.characterName);
+                        if (menuChar != null) prefab = menuChar.modelPrefab;
+                    }
+                    if (prefab == null) prefab = Resources.Load<GameObject>($"Prefabs/Characters/{data.characterName}");
                     if (prefab == null) prefab = Resources.Load<GameObject>($"Prefabs/{data.characterName}");
 
                     GameObject spawnedGO;
@@ -287,19 +354,19 @@ namespace RPG.Combat
                         AdjustModelRotationForShowroom(spawnedGO);
                         
                         // Tắt toàn bộ di chuyển và vật lý trên model thực để tránh lệch vị trí
-                        foreach (var wasd in spawnedGO.GetComponentsInChildren<TopDownWASDController>()) { wasd.enabled = false; Destroy(wasd); }
-                        foreach (var combat in spawnedGO.GetComponentsInChildren<CombatController>()) { combat.enabled = false; Destroy(combat); }
-                        foreach (var cc in spawnedGO.GetComponentsInChildren<CombatCharacter>()) { cc.enabled = false; Destroy(cc); }
-                        foreach (var characterController in spawnedGO.GetComponentsInChildren<CharacterController>()) { characterController.enabled = false; Destroy(characterController); }
+                        foreach (var wasd in spawnedGO.GetComponentsInChildren<TopDownWASDController>()) { wasd.enabled = false; DestroyImmediate(wasd); }
+                        foreach (var combat in spawnedGO.GetComponentsInChildren<CombatController>()) { combat.enabled = false; DestroyImmediate(combat); }
+                        foreach (var cc in spawnedGO.GetComponentsInChildren<CombatCharacter>()) { cc.enabled = false; DestroyImmediate(cc); }
+                        foreach (var characterController in spawnedGO.GetComponentsInChildren<CharacterController>()) { characterController.enabled = false; DestroyImmediate(characterController); }
                         foreach (var rb in spawnedGO.GetComponentsInChildren<Rigidbody>())
                         {
                             rb.isKinematic = true;
                             rb.useGravity = false;
                             rb.linearVelocity = Vector3.zero;
                             rb.angularVelocity = Vector3.zero;
-                            Destroy(rb);
+                            DestroyImmediate(rb);
                         }
-                        foreach (var col in spawnedGO.GetComponentsInChildren<Collider>()) { col.enabled = false; Destroy(col); }
+                        foreach (var col in spawnedGO.GetComponentsInChildren<Collider>()) { col.enabled = false; DestroyImmediate(col); }
 
                         // Nạp các animation tùy chỉnh của nhân vật từ CharacterData
                         Animator anim = spawnedGO.GetComponentInChildren<Animator>();
@@ -774,12 +841,21 @@ namespace RPG.Combat
             CombatTeamManager.Clear();
             CombatTeamManager.SelectedAllies = alliesToFight;
 
-            // Xác định danh sách kẻ địch chiến đấu
+            // Xác định danh sách kẻ địch chiến đấu và lọc bỏ các phần tử null
             if (currentMonster != null)
             {
-                if (currentMonster.enemyTeam != null && currentMonster.enemyTeam.Count > 0)
+                List<CharacterData> cleanEnemyTeam = new List<CharacterData>();
+                if (currentMonster.enemyTeam != null)
                 {
-                    CombatTeamManager.SelectedEnemies = currentMonster.enemyTeam;
+                    foreach (var e in currentMonster.enemyTeam)
+                    {
+                        if (e != null) cleanEnemyTeam.Add(e);
+                    }
+                }
+
+                if (cleanEnemyTeam.Count > 0)
+                {
+                    CombatTeamManager.SelectedEnemies = cleanEnemyTeam;
                 }
                 else
                 {
@@ -823,8 +899,10 @@ namespace RPG.Combat
         {
             if (menuData == null) return null;
 
-            // Kiểm tra xem đã có CharacterData thực tế trong Resources trùng tên chưa
-            CharacterData loaded = Resources.Load<CharacterData>($"Characters/{menuData.characterName}");
+            // Kiểm tra xem đã có CharacterData thực tế trong Resources trùng tên chưa (thử cả hậu tố _Data)
+            CharacterData loaded = Resources.Load<CharacterData>($"Characters/{menuData.characterName}_Data");
+            if (loaded == null) loaded = Resources.Load<CharacterData>($"Characters/{menuData.characterName}");
+            if (loaded == null) loaded = Resources.Load<CharacterData>($"{menuData.characterName}_Data");
             if (loaded == null) loaded = Resources.Load<CharacterData>($"{menuData.characterName}");
             if (loaded != null) return loaded;
 

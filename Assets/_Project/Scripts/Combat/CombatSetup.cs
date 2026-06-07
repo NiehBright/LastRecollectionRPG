@@ -10,6 +10,9 @@ namespace RPG.Combat
 
         private void Start()
         {
+#if UNITY_EDITOR
+            CombatEditorUtility.FixAllAnimatorControllers();
+#endif
             // 1. Tạo môi trường 3D Arena
             Setup3DArena();
 
@@ -73,6 +76,7 @@ namespace RPG.Combat
             if (ProceduralVFX.Instance == null) managersGO.AddComponent<ProceduralVFX>();
             if (FloatingText.Instance == null) managersGO.AddComponent<FloatingText>();
             if (UIManager.Instance == null) managersGO.AddComponent<UIManager>();
+            if (RecollectionManager.Instance == null) managersGO.AddComponent<RecollectionManager>();
         }
 
         private void SetupWeaknessDatabase()
@@ -109,12 +113,21 @@ namespace RPG.Combat
                     Destroy(pc.gameObject);
                 }
 
-                // Sinh đội hình Đồng minh động
-                int allyCount = CombatTeamManager.SelectedAllies.Count;
+                // Sinh đội hình Đồng minh động và lọc bỏ các phần tử null đề phòng lỗi cấu hình
+                List<CharacterData> cleanAllies = new List<CharacterData>();
+                if (CombatTeamManager.SelectedAllies != null)
+                {
+                    foreach (var a in CombatTeamManager.SelectedAllies)
+                    {
+                        if (a != null) cleanAllies.Add(a);
+                    }
+                }
+
+                int allyCount = cleanAllies.Count;
                 Vector3[] allyPositions = GetDynamicPositions(allyCount, true);
                 for (int i = 0; i < allyCount; i++)
                 {
-                    CharacterData data = CombatTeamManager.SelectedAllies[i];
+                    CharacterData data = cleanAllies[i];
                     GameObject prefab = null;
                     if (CharacterMenuManager.Instance != null && CharacterMenuManager.Instance.characters != null)
                     {
@@ -144,12 +157,21 @@ namespace RPG.Combat
                     allies.Add(cc);
                 }
 
-                // Sinh đội hình Kẻ địch động
-                int enemyCount = CombatTeamManager.SelectedEnemies.Count;
+                // Sinh đội hình Kẻ địch động và lọc bỏ các phần tử null đề phòng lỗi cấu hình
+                List<CharacterData> cleanEnemies = new List<CharacterData>();
+                if (CombatTeamManager.SelectedEnemies != null)
+                {
+                    foreach (var e in CombatTeamManager.SelectedEnemies)
+                    {
+                        if (e != null) cleanEnemies.Add(e);
+                    }
+                }
+
+                int enemyCount = cleanEnemies.Count;
                 Vector3[] enemyPositions = GetDynamicPositions(enemyCount, false);
                 for (int i = 0; i < enemyCount; i++)
                 {
-                    CharacterData data = CombatTeamManager.SelectedEnemies[i];
+                    CharacterData data = cleanEnemies[i];
                     GameObject prefab = Resources.Load<GameObject>($"Prefabs/Characters/{data.characterName}");
                     if (prefab == null) prefab = Resources.Load<GameObject>($"Prefabs/{data.characterName}");
 
@@ -307,12 +329,12 @@ namespace RPG.Combat
             var col = go.GetComponent<Collider>();
             if (col != null) col.enabled = false;
 
-            // Hủy các component overworld này khỏi gameobject
-            if (wasd != null) Destroy(wasd);
-            if (combatCtrl != null) Destroy(combatCtrl);
-            if (cc != null) Destroy(cc);
-            if (rb != null) Destroy(rb);
-            if (col != null) Destroy(col);
+            // Hủy các component overworld này khỏi gameobject ngay lập tức
+            if (wasd != null) DestroyImmediate(wasd);
+            if (combatCtrl != null) DestroyImmediate(combatCtrl);
+            if (cc != null) DestroyImmediate(cc);
+            if (rb != null) DestroyImmediate(rb);
+            if (col != null) DestroyImmediate(col);
         }
 
         private void SetCombatRotation(GameObject go, bool isAlly)
