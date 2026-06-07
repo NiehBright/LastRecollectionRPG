@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b21f55d93c663fd4cada74085816f256, type: 3}
+  m_Name: Rin_Data
+  m_EditorClassIdentifier: Assembly-CSharp::RPG.Combat.CharacterData
+  characterId: char_rin
+  characterName: Rin
+  element: 2
+  role: 2
+  avatar: {fileID: 0}
+  themeColor: {r: 0.9, g: 0.8, b: 0.1, a: 1}
+  isRecollectionUnlocked: 1
+  baseMaxHP: 650
+  baseATK: 90
+  baseDEF: 45
+  baseSpeed: 130
+  baseCritRate: 0.15
+  baseCritDMG: 1.6
+  skillBasic: {fileID: 11400000, guid: 6cc35de31fd6b284a8d48d444b44cffc, type: 2}
+  skillSpecial: {fileID: 11400000, guid: 5cb7b870e9bfc9f4abe75d6788132587, type: 2}
+  skillUltimate: {fileID: 11400000, guid: 99cdffc0678fcb24aaac8bce2de71d71, type: 2}
+  turnVFXPrefab: {fileID: 0}
+  idleClip: {fileID: 0}
+  runClip: {fileID: 0}
+  defendClip: {fileID: 0}
+  hitClip: {fileID: 0}
+  dieClip: {fileID: 0}

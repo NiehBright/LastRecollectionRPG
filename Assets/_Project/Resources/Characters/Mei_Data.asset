@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b21f55d93c663fd4cada74085816f256, type: 3}
+  m_Name: Mei_Data
+  m_EditorClassIdentifier: Assembly-CSharp::RPG.Combat.CharacterData
+  characterId: char_mei
+  characterName: Mei
+  element: 3
+  role: 3
+  avatar: {fileID: 0}
+  themeColor: {r: 0.2, g: 0.8, b: 0.3, a: 1}
+  isRecollectionUnlocked: 1
+  baseMaxHP: 900
+  baseATK: 80
+  baseDEF: 60
+  baseSpeed: 100
+  baseCritRate: 0.1
+  baseCritDMG: 1.5
+  skillBasic: {fileID: 11400000, guid: 9e4bc69ffbe0ddc4186044d4fb36f0bf, type: 2}
+  skillSpecial: {fileID: 11400000, guid: 6c90ba24c3177bf48a415a06a3477350, type: 2}
+  skillUltimate: {fileID: 11400000, guid: b659b1f69a64b064e810fe9f78de2992, type: 2}
+  turnVFXPrefab: {fileID: 0}
+  idleClip: {fileID: 0}
+  runClip: {fileID: 0}
+  defendClip: {fileID: 0}
+  hitClip: {fileID: 0}
+  dieClip: {fileID: 0}

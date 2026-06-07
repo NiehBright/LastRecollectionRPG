@@ -586,6 +586,7 @@ namespace RPG.Combat
                 nameRect.sizeDelta = new Vector2(99f, 16f);
                 nameRect.localScale = Vector3.one;
                 Text nTxt = nameGO.AddComponent<Text>();
+                nTxt.raycastTarget = false;
                 nTxt.text = ally.characterData.characterName;
                 nTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
                 nTxt.fontSize = 11;
@@ -599,6 +600,7 @@ namespace RPG.Combat
                 roleRect.sizeDelta = new Vector2(99f, 12f);
                 roleRect.localScale = Vector3.one;
                 Text roleTxt = roleGO.AddComponent<Text>();
+                roleTxt.raycastTarget = false;
                 roleTxt.text = $"{ally.characterData.role} ({ally.characterData.element})";
                 roleTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
                 roleTxt.fontSize = 8;
@@ -611,6 +613,7 @@ namespace RPG.Combat
                 hpRect.sizeDelta = new Vector2(99f, 14f);
                 hpRect.localScale = Vector3.one;
                 Text hpTxt = hpGO.AddComponent<Text>();
+                hpTxt.raycastTarget = false;
                 hpTxt.text = $"HP: {ally.currentHP:F0}/{ally.maxHP:F0}";
                 hpTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
                 hpTxt.fontSize = 9;
@@ -623,6 +626,7 @@ namespace RPG.Combat
                 enRect.sizeDelta = new Vector2(99f, 14f);
                 enRect.localScale = Vector3.one;
                 Text enTxt = enGO.AddComponent<Text>();
+                enTxt.raycastTarget = false;
                 enTxt.text = $"Energy: {ally.currentEnergy:F0}/100";
                 enTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
                 enTxt.fontSize = 9;
@@ -638,6 +642,7 @@ namespace RPG.Combat
                     recRect.sizeDelta = new Vector2(99f, 14f);
                     recRect.localScale = Vector3.one;
                     Text recTxt = recGO.AddComponent<Text>();
+                    recTxt.raycastTarget = false;
                     recTxt.text = "RECOLLECT ACTIVE";
                     recTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
                     recTxt.fontSize = 8;
@@ -651,6 +656,7 @@ namespace RPG.Combat
                     pipsRect.sizeDelta = new Vector2(99f, 14f);
                     pipsRect.localScale = Vector3.one;
                     Text pipsTxt = pipsGO.AddComponent<Text>();
+                    pipsTxt.raycastTarget = false;
                     string pipStr = "";
                     for (int p = 0; p < 5; p++)
                     {
@@ -673,6 +679,7 @@ namespace RPG.Combat
                     recRect.sizeDelta = new Vector2(99f, 14f);
                     recRect.localScale = Vector3.one;
                     Text recTxt = recGO.AddComponent<Text>();
+                    recTxt.raycastTarget = false;
                     recTxt.text = $"RecGauge: {ally.recollectionGauge:F0}%";
                     recTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
                     recTxt.fontSize = 9;
@@ -693,6 +700,7 @@ namespace RPG.Combat
                     rbImg.color = new Color(0.4f, 0f, 0.4f);
 
                     Button recBtn = recBtnGO.AddComponent<Button>();
+                    recBtn.targetGraphic = rbImg;
                     recBtn.onClick.AddListener(() => {
                         if (RecollectionManager.Instance != null)
                         {
@@ -709,6 +717,7 @@ namespace RPG.Combat
                     rbtRect.offsetMax = Vector2.zero;
 
                     Text rbtTxt = rbtGO.AddComponent<Text>();
+                    rbtTxt.raycastTarget = false;
                     rbtTxt.text = "RECOLLECT";
                     rbtTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
                     rbtTxt.fontSize = 8;
@@ -755,6 +764,7 @@ namespace RPG.Combat
                     bImg.color = Color.red;
 
                     Button ultBtn = ultBtnGO.AddComponent<Button>();
+                    ultBtn.targetGraphic = bImg;
                     ultBtn.onClick.AddListener(() => {
                         CombatManager.Instance.RequestUltimateCast(ally);
                     });
@@ -768,6 +778,7 @@ namespace RPG.Combat
                     btRect.offsetMax = Vector2.zero;
 
                     Text btTxt = btGO.AddComponent<Text>();
+                    btTxt.raycastTarget = false;
                     btTxt.text = "ULTIMATE";
                     btTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
                     btTxt.fontSize = 8;

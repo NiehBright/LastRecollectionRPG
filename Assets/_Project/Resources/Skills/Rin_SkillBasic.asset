@@ -10,12 +10,12 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 19d87fbd90606144db3ed1993019b287, type: 3}
-  m_Name: Hoshi_SkillBasic
+  m_Name: Rin_SkillBasic
   m_EditorClassIdentifier: Assembly-CSharp::RPG.Combat.SkillData
-  skillId: Hoshi_character_basic
+  skillId: char_rin_basic
   skillName: "T\u1EA5n C\xF4ng Th\u01B0\u1EDDng"
-  description: "G\xE2y s\xE1t th\u01B0\u01A1ng v\u1EADt l\xFD/thu\u1ED9c t\xEDnh
-    chu\u1EA9n l\xEAn m\u1ED9t m\u1EE5c ti\xEAu."
+  description: "G\xE2y s\xE1t th\u01B0\u01A1ng thu\u1ED9c t\xEDnh chu\u1EA9n l\xEAn
+    m\u1ED9t m\u1EE5c ti\xEAu."
   skillType: 0
   cooldown: 0
   damageMultiplier: 1
@@ -25,5 +25,5 @@ MonoBehaviour:
   effects: []
   skillColor: {r: 1, g: 1, b: 1, a: 1}
   animDuration: 1
-  skillClip: {fileID: -4304836385353429653, guid: 9bd717dfec15bbb4b899cbb1bcf8b78f, type: 3}
+  skillClip: {fileID: 0}
   skillImpactVFX: {fileID: 0}

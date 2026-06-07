@@ -10,11 +10,11 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b21f55d93c663fd4cada74085816f256, type: 3}
-  m_Name: Hoshi_Data
+  m_Name: Kazuko_Data
   m_EditorClassIdentifier: Assembly-CSharp::RPG.Combat.CharacterData
-  characterId: Hoshi_character
-  characterName: Hoshi
-  element: 4
+  characterId: Kazuko_character
+  characterName: Kazuko
+  element: 0
   role: 0
   avatar: {fileID: 0}
   themeColor: {r: 1, g: 0, b: 0, a: 1}
@@ -25,12 +25,12 @@ MonoBehaviour:
   baseSpeed: 110
   baseCritRate: 0.2
   baseCritDMG: 1.5
-  skillBasic: {fileID: 11400000, guid: f1c9f05cad9de3f46bb801122fe142a0, type: 2}
-  skillSpecial: {fileID: 11400000, guid: 3a336eba8d5459d4ba53a38f0bf291ee, type: 2}
-  skillUltimate: {fileID: 11400000, guid: 6c869dff154ffa24fabba887e9a620f6, type: 2}
+  skillBasic: {fileID: 11400000, guid: e4d4300226efc9f45a12039eb95bc034, type: 2}
+  skillSpecial: {fileID: 11400000, guid: 5fd86c98d42572e41815bf8339f66626, type: 2}
+  skillUltimate: {fileID: 11400000, guid: 922feff05b9474143aff078a968ac7bb, type: 2}
   turnVFXPrefab: {fileID: 0}
-  idleClip: {fileID: -5252816984213320552, guid: f6778e20f7a74d246864a11ea2e924a1, type: 3}
-  runClip: {fileID: 6829855993627946411, guid: eee6f641b7ff7cf419dc9b18e703ad0b, type: 3}
+  idleClip: {fileID: 7400000, guid: 418b6671ff23ee541863fd30811c514c, type: 3}
+  runClip: {fileID: 6861445081996442198, guid: 48193ef418d76a44bac250d732e975e3, type: 3}
   defendClip: {fileID: -2907564886427497324, guid: a45819a8c4a01c34a8e199435bdfd16c, type: 3}
   hitClip: {fileID: 7724450943488140642, guid: 292724c1626e059419142094db3cbb23, type: 3}
   dieClip: {fileID: -8691261365967096569, guid: b5180cc0dd351fd4a957b52d6c3b34aa, type: 3}
