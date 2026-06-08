@@ -140,7 +140,10 @@ namespace RPG.Combat
                     GameObject go;
                     if (prefab != null)
                     {
+                        bool originalActive = prefab.activeSelf;
+                        prefab.SetActive(false);
                         go = Instantiate(prefab, allyPositions[i], Quaternion.identity);
+                        prefab.SetActive(originalActive);
                     }
                     else
                     {
@@ -150,6 +153,7 @@ namespace RPG.Combat
 
                     CleanOverworldComponents(go);
                     SetCombatRotation(go, true);
+                    go.SetActive(true); // Kích hoạt lại GameObject sau khi đã dọn dẹp sạch component overworld
 
                     CombatCharacter cc = go.GetComponent<CombatCharacter>();
                     if (cc == null) cc = go.AddComponent<CombatCharacter>();
@@ -178,7 +182,10 @@ namespace RPG.Combat
                     GameObject go;
                     if (prefab != null)
                     {
+                        bool originalActive = prefab.activeSelf;
+                        prefab.SetActive(false);
                         go = Instantiate(prefab, enemyPositions[i], Quaternion.identity);
+                        prefab.SetActive(originalActive);
                     }
                     else
                     {
@@ -188,6 +195,7 @@ namespace RPG.Combat
 
                     CleanOverworldComponents(go);
                     SetCombatRotation(go, false);
+                    go.SetActive(true); // Kích hoạt lại GameObject sau khi đã dọn dẹp sạch component overworld
 
                     CombatCharacter cc = go.GetComponent<CombatCharacter>();
                     if (cc == null) cc = go.AddComponent<CombatCharacter>();
