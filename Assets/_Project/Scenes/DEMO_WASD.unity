@@ -1238,7 +1238,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 4211751211332775161, guid: 4c9e9e1775f94d94ca1ca197f83e427c, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1527658132}
   m_SourcePrefab: {fileID: 100100000, guid: 4c9e9e1775f94d94ca1ca197f83e427c, type: 3}
 --- !u!1 &1468993112
 GameObject:
@@ -1352,6 +1355,30 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1468993112}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!1 &1527658131 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 4211751211332775161, guid: 4c9e9e1775f94d94ca1ca197f83e427c, type: 3}
+  m_PrefabInstance: {fileID: 1438100503}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1527658132
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1527658131}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e5ae68d554e46f249a1fd5c98cd1a8ca, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RPG.Combat.OverworldMonster
+  uniqueId: monster_c03ecfb6_EnemyDummy
+  enemyTeam:
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  detectionRadius: 2.2
 --- !u!1 &1620892414
 GameObject:
   m_ObjectHideFlags: 0

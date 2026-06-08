@@ -66,12 +66,26 @@ namespace RPG.Combat
             if (isDead || isCommander || characterData == null || !characterData.isRecollectionUnlocked) return;
             recollectionGauge = Mathf.Clamp(recollectionGauge + amount, 0f, 100f);
             UpdateFloatingHUD();
+            if (UIManager.Instance != null)
+            {
+                UIManager.Instance.UpdatePartyPanel();
+            }
+        }
+
+        public void SetOriginalPosition(Vector3 newPosition)
+        {
+            originalPosition = newPosition;
         }
 
         public void Initialize(CharacterData data, bool isAllySide)
         {
             characterData = data;
             isAlly = isAllySide;
+
+            if (isAlly && characterData != null)
+            {
+                characterData.isRecollectionUnlocked = true;
+            }
 
             maxHP = data.baseMaxHP;
             currentHP = maxHP;
