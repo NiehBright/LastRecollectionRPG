@@ -1374,10 +1374,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::RPG.Combat.OverworldMonster
   uniqueId: monster_c03ecfb6_EnemyDummy
   enemyTeam:
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
+  - {fileID: 11400000, guid: 1833ea7829dfc2846940cc4665fe90d2, type: 2}
+  - {fileID: 11400000, guid: 1833ea7829dfc2846940cc4665fe90d2, type: 2}
+  - {fileID: 11400000, guid: 73121f7a0ffa2b74cba8b23d98193238, type: 2}
+  - {fileID: 11400000, guid: 73121f7a0ffa2b74cba8b23d98193238, type: 2}
+  - {fileID: 11400000, guid: 73121f7a0ffa2b74cba8b23d98193238, type: 2}
   detectionRadius: 2.2
 --- !u!1 &1620892414
 GameObject:
