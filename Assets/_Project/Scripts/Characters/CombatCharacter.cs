@@ -443,6 +443,11 @@ namespace RPG.Combat
                     Outline outline = textGO.AddComponent<Outline>();
                     outline.effectColor = Color.black;
                     outline.effectDistance = new Vector2(1f, -1f);
+
+                    // Đảm bảo raycastTarget được bật và gắn BuffTooltipTrigger để xem thông tin buff khi hover chuột
+                    iconImg.raycastTarget = true;
+                    BuffTooltipTrigger trigger = iconGO.AddComponent<BuffTooltipTrigger>();
+                    trigger.Initialize(effect);
                 }
             }
         }

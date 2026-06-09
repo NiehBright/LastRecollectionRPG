@@ -12,6 +12,7 @@ namespace RPG.Combat
         public Transform descriptionPanel;
         public Transform targetSelectionPanel;
         public Transform endScreenPanel;
+        public Transform recollectionBannerPanel;
 
         [Header("Texts")]
         public Text descriptionText;

@@ -726,6 +726,24 @@ namespace RPG.Combat
             turnQueue.RemoveCharacter(character);
             OnCharacterDeath?.Invoke(character);
 
+            // Nếu Recollection đang active và đồng đội hàng trước chết hết, giải trừ Recollection ngay lập tức
+            if (RecollectionManager.Instance != null && RecollectionManager.Instance.IsRecollectionActive)
+            {
+                int aliveFrontRowAllies = 0;
+                foreach (var ally in allies)
+                {
+                    if (!ally.isDead && ally != RecollectionManager.Instance.activeCommander)
+                    {
+                        aliveFrontRowAllies++;
+                    }
+                }
+                if (aliveFrontRowAllies == 0)
+                {
+                    Debug.Log("[CombatManager] Tất cả đồng đội hàng trước đã gục ngã. Giải trừ Recollection cho chỉ huy!");
+                    RecollectionManager.Instance.DeactivateRecollection();
+                }
+            }
+
             // Kiểm tra ngay điều kiện kết thúc trận đấu
             CheckCombatEnd();
         }
