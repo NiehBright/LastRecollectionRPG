@@ -894,17 +894,36 @@ namespace VFavorites
             void openFolder(EditorWindow browser, string path)
             {
                 var folderAsset = AssetDatabase.LoadAssetAtPath<Object>(path);
+                if (folderAsset == null) return;
 
                 if (browser.GetFieldValue<int>("m_ViewMode") == 1)
-                    browser.InvokeMethod("SetFolderSelection", new[] { folderAsset.GetInstanceID() }, false);
+                {
+                    try
+                    {
+                        browser.InvokeMethod("ShowFolderContents", folderAsset.GetInstanceID(), false);
+                    }
+                    catch
+                    {
+                        try
+                        {
+                            browser.InvokeMethod("SetFolderSelection", new[] { folderAsset.GetInstanceID() }, false);
+                        }
+                        catch
+                        {
+                            Selection.activeObject = folderAsset;
+                            EditorGUIUtility.PingObject(folderAsset);
+                        }
+                    }
+                }
                 else
                 {
                     Selection.activeObject = folderAsset;
-
-                    browser.GetMemberValue("m_AssetTree")?.GetPropertyValue("data")?.InvokeMethod("SetExpanded", folderAsset.GetInstanceID(), true);
-
+                    try
+                    {
+                        browser.GetMemberValue("m_AssetTree")?.GetPropertyValue("data")?.InvokeMethod("SetExpanded", folderAsset.GetInstanceID(), true);
+                    }
+                    catch {}
                 }
-
             }
 
             void selectSceneObject()
