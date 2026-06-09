@@ -19,6 +19,11 @@ namespace RPG.Combat
         private Transform descriptionPanel;
         private Transform endScreenPanel;
         private Transform targetSelectionPanel;
+        private Transform recollectionBannerPanel;
+
+        private Transform tooltipPanel;
+        private Text tooltipText;
+        private static Sprite cachedWhiteSprite;
 
         private Text descriptionText;
         private Text endScreenText;
@@ -76,8 +81,15 @@ namespace RPG.Combat
                 CombatManager.Instance.OnTurnStart += HandleTurnStart;
                 CombatManager.Instance.OnCombatStarted += HandleCombatStarted;
                 CombatManager.Instance.OnCombatEnd += HandleCombatEnd;
+
+                if (RecollectionManager.Instance != null)
+                {
+                    RecollectionManager.Instance.OnRecollectionActivated -= HandleRecollectionActivated;
+                    RecollectionManager.Instance.OnRecollectionActivated += HandleRecollectionActivated;
+                }
+
                 eventsRegistered = true;
-                Debug.Log("[UIManager] Đã đăng ký sự kiện thành công từ CombatManager.");
+                Debug.Log("[UIManager] Đã đăng ký sự kiện thành công từ CombatManager & RecollectionManager.");
             }
         }
 
@@ -99,6 +111,12 @@ namespace RPG.Combat
                         ally.OnEnergyChanged += HandleAllyEnergyChanged;
                     }
                 }
+            }
+
+            if (RecollectionManager.Instance != null)
+            {
+                RecollectionManager.Instance.OnRecollectionActivated -= HandleRecollectionActivated;
+                RecollectionManager.Instance.OnRecollectionActivated += HandleRecollectionActivated;
             }
         }
 
@@ -155,7 +173,6 @@ namespace RPG.Combat
             if (uiPrefab != null)
             {
                 GameObject canvasInstance = Instantiate(uiPrefab);
-                DontDestroyOnLoad(canvasInstance);
                 overlayCanvas = canvasInstance.GetComponent<Canvas>();
                 
                 CombatUIReferences refs = canvasInstance.GetComponent<CombatUIReferences>();
@@ -167,6 +184,7 @@ namespace RPG.Combat
                     descriptionPanel = refs.descriptionPanel;
                     targetSelectionPanel = refs.targetSelectionPanel;
                     endScreenPanel = refs.endScreenPanel;
+                    recollectionBannerPanel = refs.recollectionBannerPanel;
 
                     descriptionText = refs.descriptionText;
                     endScreenText = refs.endScreenText;
@@ -216,9 +234,9 @@ namespace RPG.Combat
             
             canvasGO.AddComponent<CanvasScaler>();
             canvasGO.AddComponent<GraphicRaycaster>();
-            
-            // Giữ Canvas không bị xóa
-            DontDestroyOnLoad(canvasGO);
+
+            // Tạo Banner dynamic fallback
+            CreateProceduralRecollectionBanner();
 
             // 2. Tạo Bảng hàng chờ Turn Queue (Top Center)
             GameObject turnPanelGO = new GameObject("TurnQueuePanel");
@@ -249,7 +267,7 @@ namespace RPG.Combat
             partyRect.anchorMax = new Vector2(0f, 0f);
             partyRect.pivot = new Vector2(0f, 0f);
             partyRect.anchoredPosition = new Vector2(20f, 20f);
-            partyRect.sizeDelta = new Vector2(500f, 140f);
+            partyRect.sizeDelta = new Vector2(500f, 180f);
             partyRect.localScale = Vector3.one;
 
             Image partyImg = partyPanelGO.AddComponent<Image>();
@@ -396,6 +414,42 @@ namespace RPG.Combat
 
             endScreenPanel = endGO.transform;
             endScreenPanel.gameObject.SetActive(false);
+
+            // 7. Tạo Bảng Tooltip (Buff/Debuff Tooltip) - Ẩn mặc định
+            GameObject tooltipGO = new GameObject("BuffTooltipPanel");
+            tooltipGO.transform.SetParent(overlayCanvas.transform);
+            RectTransform toolRect = tooltipGO.AddComponent<RectTransform>();
+            toolRect.anchorMin = Vector2.zero;
+            toolRect.anchorMax = Vector2.zero;
+            toolRect.pivot = new Vector2(0f, 0f); // Pivot góc dưới trái
+            toolRect.sizeDelta = new Vector2(200f, 65f);
+            toolRect.localScale = Vector3.one;
+
+            Image toolImg = tooltipGO.AddComponent<Image>();
+            toolImg.color = new Color(0.05f, 0.05f, 0.05f, 0.95f);
+            
+            // Thêm viền
+            Outline toolOutline = tooltipGO.AddComponent<Outline>();
+            toolOutline.effectColor = Color.yellow;
+            toolOutline.effectDistance = new Vector2(1f, -1f);
+
+            GameObject toolTextGO = new GameObject("TooltipText");
+            toolTextGO.transform.SetParent(tooltipGO.transform);
+            RectTransform ttRect = toolTextGO.AddComponent<RectTransform>();
+            ttRect.anchorMin = Vector2.zero;
+            ttRect.anchorMax = Vector2.one;
+            ttRect.offsetMin = new Vector2(8, 8);
+            ttRect.offsetMax = new Vector2(-8, -8);
+
+            tooltipText = toolTextGO.AddComponent<Text>();
+            tooltipText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            tooltipText.fontSize = 11;
+            tooltipText.color = Color.white;
+            tooltipText.alignment = TextAnchor.UpperLeft;
+            tooltipText.text = "";
+
+            tooltipPanel = tooltipGO.transform;
+            tooltipPanel.gameObject.SetActive(false);
         }
 
         private Button CreateUIButton(Transform parent, string labelText, UnityEngine.Events.UnityAction onClickAction)
@@ -549,9 +603,8 @@ namespace RPG.Combat
                 GameObject cardGO = new GameObject("PartyCard_" + ally.characterData.characterName);
                 cardGO.transform.SetParent(partyPanel);
                 RectTransform cardRect = cardGO.AddComponent<RectTransform>();
-                
-                // Tăng sizeDelta chiều cao lên để chứa thêm thông tin Recollection
-                cardRect.sizeDelta = new Vector2(115f, 160f);
+                // Tăng sizeDelta chiều cao lên để chứa thêm thông tin Recollection và Buffs
+                cardRect.sizeDelta = new Vector2(115f, 175f);
                 cardRect.localScale = Vector3.one;
                 cardRect.localPosition = Vector3.zero;
                 cardRect.localRotation = Quaternion.identity;
@@ -806,6 +859,76 @@ namespace RPG.Combat
                     }
 
                     partyUltButtons[ally] = ultBtn;
+                }
+
+                // --- VẼ BUFF/DEBUFF CHO PARTY MEMBER ---
+                GameObject buffsGO = new GameObject("PartyBuffContainer");
+                buffsGO.transform.SetParent(cardGO.transform, false);
+                RectTransform buffsRect = buffsGO.AddComponent<RectTransform>();
+                buffsRect.sizeDelta = new Vector2(99f, 16f);
+                buffsRect.localScale = Vector3.one;
+                buffsRect.localPosition = Vector3.zero;
+                buffsRect.localRotation = Quaternion.identity;
+
+                LayoutElement leBuffs = buffsGO.AddComponent<LayoutElement>();
+                leBuffs.preferredWidth = 99f;
+                leBuffs.preferredHeight = 16f;
+
+                HorizontalLayoutGroup layout = buffsGO.AddComponent<HorizontalLayoutGroup>();
+                layout.childAlignment = TextAnchor.MiddleLeft;
+                layout.spacing = 3f;
+                layout.childControlHeight = false;
+                layout.childControlWidth = false;
+
+                foreach (var effect in ally.activeEffects)
+                {
+                    GameObject iconGO = new GameObject("PartyBuffIcon");
+                    iconGO.transform.SetParent(buffsGO.transform);
+                    
+                    RectTransform iconRect = iconGO.AddComponent<RectTransform>();
+                    iconRect.sizeDelta = new Vector2(14f, 14f);
+                    iconRect.localScale = Vector3.one;
+                    iconRect.localPosition = Vector3.zero;
+                    iconRect.localRotation = Quaternion.identity;
+
+                    Image iconImg = iconGO.AddComponent<Image>();
+                    iconImg.color = effect.data.effectColor;
+
+                    if (effect.data.icon != null)
+                    {
+                        iconImg.sprite = effect.data.icon;
+                    }
+                    else
+                    {
+                        iconImg.sprite = GetDefaultWhiteSprite();
+                    }
+                    iconImg.raycastTarget = true;
+
+                    // Text số lượt còn lại
+                    GameObject textGO = new GameObject("TurnText");
+                    textGO.transform.SetParent(iconGO.transform);
+                    RectTransform textRect = textGO.AddComponent<RectTransform>();
+                    textRect.anchorMin = Vector2.zero;
+                    textRect.anchorMax = Vector2.one;
+                    textRect.offsetMin = Vector2.zero;
+                    textRect.offsetMax = Vector2.zero;
+                    textRect.localPosition = Vector3.zero;
+                    textRect.localScale = Vector3.one;
+
+                    Text txt = textGO.AddComponent<Text>();
+                    txt.text = effect.turnsRemaining.ToString();
+                    txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                    txt.fontSize = 8;
+                    txt.alignment = TextAnchor.LowerRight;
+                    txt.color = Color.white;
+
+                    Outline outline = textGO.AddComponent<Outline>();
+                    outline.effectColor = Color.black;
+                    outline.effectDistance = new Vector2(1f, -1f);
+
+                    // Thêm Tooltip Trigger
+                    BuffTooltipTrigger trigger = iconGO.AddComponent<BuffTooltipTrigger>();
+                    trigger.Initialize(effect);
                 }
             }
         }
@@ -1241,6 +1364,15 @@ namespace RPG.Combat
 
         private void OnRestartButtonClicked()
         {
+            // Tắt Tooltip trước khi đổi Scene
+            HideTooltip();
+
+            // Chủ động hủy Canvas chính của Combat để tránh trôi nổi
+            if (overlayCanvas != null)
+            {
+                Destroy(overlayCanvas.gameObject);
+            }
+
             if (CombatTeamManager.IsEnteringFromOverworld)
             {
                 SceneManager.LoadScene("DEMO_WASD");
@@ -1252,5 +1384,261 @@ namespace RPG.Combat
         }
 
         #endregion
+
+        #region Recollection Banner UI
+
+        private void HandleRecollectionActivated(CombatCharacter commander)
+        {
+            ShowRecollectionBanner(commander);
+        }
+
+        private void CreateProceduralRecollectionBanner()
+        {
+            if (overlayCanvas == null) return;
+
+            GameObject bannerGO = new GameObject("RecollectionBannerUI");
+            bannerGO.transform.SetParent(overlayCanvas.transform, false);
+
+            RectTransform bannerRect = bannerGO.AddComponent<RectTransform>();
+            bannerRect.anchorMin = new Vector2(0f, 0.5f);
+            bannerRect.anchorMax = new Vector2(1f, 0.5f);
+            bannerRect.pivot = new Vector2(0.5f, 0.5f);
+            bannerRect.anchoredPosition = Vector2.zero;
+            bannerRect.sizeDelta = new Vector2(0f, 150f); // Chiều cao banner 150px
+            bannerRect.localScale = new Vector3(1f, 0f, 1f); // Mặc định thu hẹp Y
+
+            CanvasGroup group = bannerGO.AddComponent<CanvasGroup>();
+            group.alpha = 0f;
+
+            Image bgImage = bannerGO.AddComponent<Image>();
+            bgImage.color = new Color(0.05f, 0.05f, 0.07f, 0.85f); // Đen mờ sang trọng
+
+            GameObject borderTop = new GameObject("BorderTop");
+            borderTop.transform.SetParent(bannerGO.transform, false);
+            RectTransform btRect = borderTop.AddComponent<RectTransform>();
+            btRect.anchorMin = new Vector2(0f, 1f);
+            btRect.anchorMax = new Vector2(1f, 1f);
+            btRect.pivot = new Vector2(0.5f, 1f);
+            btRect.anchoredPosition = Vector2.zero;
+            btRect.sizeDelta = new Vector2(0f, 3f);
+            Image btImg = borderTop.AddComponent<Image>();
+            btImg.color = Color.white;
+
+            GameObject borderBottom = new GameObject("BorderBottom");
+            borderBottom.transform.SetParent(bannerGO.transform, false);
+            RectTransform bbRect = borderBottom.AddComponent<RectTransform>();
+            bbRect.anchorMin = new Vector2(0f, 0f);
+            bbRect.anchorMax = new Vector2(1f, 0f);
+            bbRect.pivot = new Vector2(0.5f, 0f);
+            bbRect.anchoredPosition = Vector2.zero;
+            bbRect.sizeDelta = new Vector2(0f, 3f);
+            Image bbImg = borderBottom.AddComponent<Image>();
+            bbImg.color = Color.white;
+
+            GameObject titleGO = new GameObject("TitleText");
+            titleGO.transform.SetParent(bannerGO.transform, false);
+            RectTransform titleRect = titleGO.AddComponent<RectTransform>();
+            titleRect.anchorMin = new Vector2(0f, 0.5f);
+            titleRect.anchorMax = new Vector2(1f, 0.5f);
+            titleRect.pivot = new Vector2(0.5f, 0.5f);
+            titleRect.anchoredPosition = new Vector2(0f, 15f);
+            titleRect.sizeDelta = new Vector2(0f, 60f);
+
+            Text titleTxt = titleGO.AddComponent<Text>();
+            titleTxt.text = "RECOLLECTION";
+            titleTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            titleTxt.fontSize = 42;
+            titleTxt.alignment = TextAnchor.MiddleCenter;
+            titleTxt.color = Color.white;
+            titleTxt.fontStyle = FontStyle.Bold;
+
+            Outline titleOutline = titleGO.AddComponent<Outline>();
+            titleOutline.effectColor = new Color(0f, 0f, 0f, 0.8f);
+            titleOutline.effectDistance = new Vector2(2f, -2f);
+
+            GameObject subTitleGO = new GameObject("SubTitleText");
+            subTitleGO.transform.SetParent(bannerGO.transform, false);
+            RectTransform subTitleRect = subTitleGO.AddComponent<RectTransform>();
+            subTitleRect.anchorMin = new Vector2(0f, 0.5f);
+            subTitleRect.anchorMax = new Vector2(1f, 0.5f);
+            subTitleRect.pivot = new Vector2(0.5f, 0.5f);
+            subTitleRect.anchoredPosition = new Vector2(0f, -25f);
+            subTitleRect.sizeDelta = new Vector2(0f, 30f);
+
+            Text subTitleTxt = subTitleGO.AddComponent<Text>();
+            subTitleTxt.text = "— COMMANDER AWAKENING —";
+            subTitleTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            subTitleTxt.fontSize = 14;
+            subTitleTxt.alignment = TextAnchor.MiddleCenter;
+            subTitleTxt.color = new Color(0.9f, 0.9f, 0.9f, 0.9f);
+            subTitleTxt.fontStyle = FontStyle.Normal;
+
+            Outline subOutline = subTitleGO.AddComponent<Outline>();
+            subOutline.effectColor = new Color(0f, 0f, 0f, 0.6f);
+            subOutline.effectDistance = new Vector2(1.5f, -1.5f);
+
+            recollectionBannerPanel = bannerGO.transform;
+            bannerGO.SetActive(false);
+        }
+
+        public void ShowRecollectionBanner(CombatCharacter commander)
+        {
+            if (recollectionBannerPanel == null || commander == null) return;
+
+            Color elementColor = CombatManager.Instance.GetElementColor(commander.characterData.element);
+
+            // Bật banner hoạt động
+            recollectionBannerPanel.gameObject.SetActive(true);
+
+            // Cập nhật màu sắc cho các thành phần con
+            Transform bt = recollectionBannerPanel.Find("BorderTop");
+            if (bt != null)
+            {
+                Image img = bt.GetComponent<Image>();
+                if (img != null) img.color = elementColor;
+            }
+
+            Transform bb = recollectionBannerPanel.Find("BorderBottom");
+            if (bb != null)
+            {
+                Image img = bb.GetComponent<Image>();
+                if (img != null) img.color = elementColor;
+            }
+
+            Transform title = recollectionBannerPanel.Find("TitleText");
+            if (title != null)
+            {
+                Text txt = title.GetComponent<Text>();
+                if (txt != null) txt.color = elementColor;
+            }
+
+            StartCoroutine(CoShowRecollectionBanner(elementColor));
+        }
+
+        private System.Collections.IEnumerator CoShowRecollectionBanner(Color themeColor)
+        {
+            RectTransform bannerRect = recollectionBannerPanel.GetComponent<RectTransform>();
+            CanvasGroup group = recollectionBannerPanel.GetComponent<CanvasGroup>();
+
+            Transform title = recollectionBannerPanel.Find("TitleText");
+            RectTransform titleRect = title != null ? title.GetComponent<RectTransform>() : null;
+
+            if (bannerRect == null || group == null) yield break;
+
+            // Đặt trạng thái ban đầu
+            group.alpha = 0f;
+            bannerRect.localScale = new Vector3(1f, 0f, 1f);
+            if (titleRect != null) titleRect.localScale = Vector3.one * 1.4f;
+
+            // Chạy hiệu ứng động
+            float elapsed = 0f;
+            float fadeInTime = 0.3f;
+            float holdTime = 1.2f;
+            float fadeOutTime = 0.4f;
+
+            Vector3 startScale = new Vector3(1f, 0f, 1f);
+            Vector3 targetScale = Vector3.one;
+
+            // Phase 1: Fade In & Scale Y
+            while (elapsed < fadeInTime)
+            {
+                elapsed += Time.deltaTime;
+                float t = elapsed / fadeInTime;
+                t = Mathf.SmoothStep(0f, 1f, t);
+
+                group.alpha = t;
+                bannerRect.localScale = Vector3.Lerp(startScale, targetScale, t);
+                if (titleRect != null) titleRect.localScale = Vector3.Lerp(Vector3.one * 1.4f, Vector3.one, t);
+                yield return null;
+            }
+
+            group.alpha = 1f;
+            bannerRect.localScale = Vector3.one;
+            if (titleRect != null) titleRect.localScale = Vector3.one;
+
+            // Phase 2: Giữ nguyên
+            yield return new WaitForSeconds(holdTime);
+
+            // Phase 3: Fade Out & Scale Y về 0
+            elapsed = 0f;
+            while (elapsed < fadeOutTime)
+            {
+                elapsed += Time.deltaTime;
+                float t = elapsed / fadeOutTime;
+                t = Mathf.SmoothStep(0f, 1f, t);
+
+                group.alpha = 1f - t;
+                bannerRect.localScale = Vector3.Lerp(targetScale, startScale, t);
+                yield return null;
+            }
+
+            // Tắt hoạt động thay vì Hủy để giữ lại prefab
+            recollectionBannerPanel.gameObject.SetActive(false);
+        }
+
+        private void OnDestroy()
+        {
+            if (CombatManager.Instance != null)
+            {
+                CombatManager.Instance.OnTurnStart -= HandleTurnStart;
+                CombatManager.Instance.OnCombatStarted -= HandleCombatStarted;
+                CombatManager.Instance.OnCombatEnd -= HandleCombatEnd;
+            }
+            if (RecollectionManager.Instance != null)
+            {
+                RecollectionManager.Instance.OnRecollectionActivated -= HandleRecollectionActivated;
+            }
+        }
+
+        #endregion
+        public void ShowTooltip(string title, string description, Color titleColor, Vector2 screenPos)
+        {
+            if (tooltipPanel == null || tooltipText == null) return;
+            
+            tooltipPanel.gameObject.SetActive(true);
+            tooltipText.text = $"<b><color=#{ColorUtility.ToHtmlStringRGBA(titleColor)}>{title}</color></b>\n{description}";
+            
+            RectTransform rect = tooltipPanel.GetComponent<RectTransform>();
+            float width = rect.sizeDelta.x;
+            float height = rect.sizeDelta.y;
+            
+            float posX = screenPos.x + 15f;
+            float posY = screenPos.y + 15f;
+            
+            if (posX + width > Screen.width)
+            {
+                posX = screenPos.x - width - 15f;
+            }
+            if (posY + height > Screen.height)
+            {
+                posY = screenPos.y - height - 15f;
+            }
+            
+            rect.position = new Vector2(posX, posY);
+        }
+
+        public void HideTooltip()
+        {
+            if (tooltipPanel != null)
+            {
+                tooltipPanel.gameObject.SetActive(false);
+            }
+        }
+
+        private Sprite GetDefaultWhiteSprite()
+        {
+            if (cachedWhiteSprite != null) return cachedWhiteSprite;
+            Texture2D tex = new Texture2D(2, 2);
+            for (int y = 0; y < 2; y++)
+            {
+                for (int x = 0; x < 2; x++)
+                {
+                    tex.SetPixel(x, y, Color.white);
+                }
+            }
+            tex.Apply();
+            cachedWhiteSprite = Sprite.Create(tex, new Rect(0, 0, 2, 2), new Vector2(0.5f, 0.5f));
+            return cachedWhiteSprite;
+        }
     }
 }
