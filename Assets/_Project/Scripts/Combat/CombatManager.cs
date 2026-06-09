@@ -182,9 +182,9 @@ namespace RPG.Combat
             if (activeCharacter.isAlly)
             {
                 currentState = CombatState.PLAYERTURN;
-                // Zoom camera cận cảnh từ phía sau vai (JRPG Over-The-Shoulder) hướng về kẻ địch
-                Vector3 focusPos = activeCharacter.transform.position - activeCharacter.transform.forward * 2.5f + activeCharacter.transform.right * 1.0f + Vector3.up * 1.5f;
-                Vector3 targetLook = activeCharacter.transform.position + activeCharacter.transform.forward * 3.0f + Vector3.up * 1.0f;
+                // Zoom camera cận cảnh từ phía sau vai (JRPG Over-The-Shoulder) hướng về kẻ địch dựa trên hướng thế giới cố định
+                Vector3 focusPos = activeCharacter.transform.position + Vector3.back * 2.5f + Vector3.right * 1.0f + Vector3.up * 1.5f;
+                Vector3 targetLook = activeCharacter.transform.position + Vector3.forward * 3.0f + Vector3.up * 1.0f;
                 Quaternion focusRot = Quaternion.LookRotation(targetLook - focusPos);
                 MoveCamera(focusPos, focusRot, 0.6f);
 
