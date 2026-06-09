@@ -234,32 +234,61 @@ namespace RPG.Combat
                 // 3. Nếu tìm thấy nhân vật có sẵn, tiến hành liên kết và sử dụng
                 if (existingChars != null && existingChars.Length > 0)
                 {
-                    Debug.Log($"[CombatSetup] Tìm thấy {existingChars.Length} nhân vật có sẵn trên scene. Sử dụng chúng cho trận đấu.");
-                    int allyIndex = 0;
-                    int enemyIndex = 0;
+                    Debug.Log($"[CombatSetup] Tìm thấy {existingChars.Length} nhân vật có sẵn trên scene. Sử dụng và đặt lại vị trí chuẩn.");
+                    
+                    List<CombatCharacter> tempAllies = new List<CombatCharacter>();
+                    List<CombatCharacter> tempEnemies = new List<CombatCharacter>();
 
                     foreach (var cc in existingChars)
                     {
+                        if (cc.isAlly) tempAllies.Add(cc);
+                        else tempEnemies.Add(cc);
+                    }
+
+                    // Sắp xếp các nhân vật này theo tọa độ X hiện tại để giữ thứ tự trái/phải
+                    tempAllies.Sort((a, b) => a.transform.position.x.CompareTo(b.transform.position.x));
+                    tempEnemies.Sort((a, b) => a.transform.position.x.CompareTo(b.transform.position.x));
+
+                    // Lấy các vị trí đối xứng hàng ngang chuẩn
+                    Vector3[] allyPositions = GetDynamicPositions(tempAllies.Count, true);
+                    Vector3[] enemyPositions = GetDynamicPositions(tempEnemies.Count, false);
+
+                    int allyIndex = 0;
+                    foreach (var cc in tempAllies)
+                    {
                         if (cc.characterData == null)
                         {
-                            if (cc.isAlly)
-                            {
-                                cc.characterData = allyDatas[Mathf.Min(allyIndex, allyDatas.Length - 1)];
-                                allyIndex++;
-                            }
-                            else
-                            {
-                                cc.characterData = enemyDatas[Mathf.Min(enemyIndex, enemyDatas.Length - 1)];
-                                enemyIndex++;
-                            }
+                            cc.characterData = allyDatas[Mathf.Min(allyIndex, allyDatas.Length - 1)];
                         }
 
-                        cc.Initialize(cc.characterData, cc.isAlly);
-                        CleanOverworldComponents(cc.gameObject);
-                        SetCombatRotation(cc.gameObject, cc.isAlly);
+                        // Đặt ngay vị trí chuẩn trước khi dọn dẹp để triệt tiêu việc rơi tự do
+                        cc.transform.position = allyPositions[allyIndex];
 
-                        if (cc.isAlly) allies.Add(cc);
-                        else enemies.Add(cc);
+                        cc.Initialize(cc.characterData, true);
+                        CleanOverworldComponents(cc.gameObject);
+                        SetCombatRotation(cc.gameObject, true);
+
+                        allies.Add(cc);
+                        allyIndex++;
+                    }
+
+                    int enemyIndex = 0;
+                    foreach (var cc in tempEnemies)
+                    {
+                        if (cc.characterData == null)
+                        {
+                            cc.characterData = enemyDatas[Mathf.Min(enemyIndex, enemyDatas.Length - 1)];
+                        }
+
+                        // Đặt ngay vị trí chuẩn trước khi dọn dẹp để triệt tiêu việc rơi tự do
+                        cc.transform.position = enemyPositions[enemyIndex];
+
+                        cc.Initialize(cc.characterData, false);
+                        CleanOverworldComponents(cc.gameObject);
+                        SetCombatRotation(cc.gameObject, false);
+
+                        enemies.Add(cc);
+                        enemyIndex++;
                     }
                 }
                 else
@@ -317,32 +346,26 @@ namespace RPG.Combat
         {
             if (go == null) return;
 
-            // Vô hiệu hóa ngay lập tức để tránh lỗi di chuyển hay trọng lực kéo sập model xuống
-            var wasd = go.GetComponent<BLINK.Controller.TopDownWASDController>();
-            if (wasd != null) wasd.enabled = false;
+            // Tìm và xóa triệt để các component di chuyển và vật lý ở cả đối tượng con để tránh lỗi rơi tự do
+            var wasds = go.GetComponentsInChildren<BLINK.Controller.TopDownWASDController>(true);
+            foreach (var w in wasds) DestroyImmediate(w);
 
-            var combatCtrl = go.GetComponent<BLINK.Controller.CombatController>();
-            if (combatCtrl != null) combatCtrl.enabled = false;
+            var combatCtrls = go.GetComponentsInChildren<BLINK.Controller.CombatController>(true);
+            foreach (var c in combatCtrls) DestroyImmediate(c);
 
-            var cc = go.GetComponent<CharacterController>();
-            if (cc != null) cc.enabled = false;
+            var ccs = go.GetComponentsInChildren<CharacterController>(true);
+            foreach (var c in ccs) DestroyImmediate(c);
 
-            var rb = go.GetComponent<Rigidbody>();
-            if (rb != null)
+            var rbs = go.GetComponentsInChildren<Rigidbody>(true);
+            foreach (var r in rbs)
             {
-                rb.isKinematic = true;
-                rb.useGravity = false;
+                r.isKinematic = true;
+                r.useGravity = false;
+                DestroyImmediate(r);
             }
 
-            var col = go.GetComponent<Collider>();
-            if (col != null) col.enabled = false;
-
-            // Hủy các component overworld này khỏi gameobject ngay lập tức
-            if (wasd != null) DestroyImmediate(wasd);
-            if (combatCtrl != null) DestroyImmediate(combatCtrl);
-            if (cc != null) DestroyImmediate(cc);
-            if (rb != null) DestroyImmediate(rb);
-            if (col != null) DestroyImmediate(col);
+            var cols = go.GetComponentsInChildren<Collider>(true);
+            foreach (var c in cols) DestroyImmediate(c);
         }
 
         private void SetCombatRotation(GameObject go, bool isAlly)
@@ -659,36 +682,20 @@ namespace RPG.Combat
 
         private Vector3[] GetDynamicPositions(int count, bool isAllySide)
         {
-            float z = isAllySide ? -4.5f : 4.5f;
-            float zOffset = isAllySide ? 0.5f : -0.5f; // Đẩy các vị trí ngoài lùi lại một chút
             Vector3[] pos = new Vector3[count];
+            float zBase = isAllySide ? -4.5f : 4.5f;
+            float offsetSign = isAllySide ? -1.0f : 1.0f; // Đồng minh lùi về -Z, kẻ địch lùi về +Z
+            float stepX = 2.2f; // Khoảng cách ngang giữa các nhân vật
 
-            if (count == 1)
+            for (int i = 0; i < count; i++)
             {
-                pos[0] = new Vector3(0f, 0f, z);
-            }
-            else if (count == 2)
-            {
-                pos[0] = new Vector3(-1.5f, 0f, z);
-                pos[1] = new Vector3(1.5f, 0f, z);
-            }
-            else if (count == 3)
-            {
-                pos[0] = new Vector3(-3.0f, 0f, z - zOffset);
-                pos[1] = new Vector3(0f, 0f, z);
-                pos[2] = new Vector3(3.0f, 0f, z - zOffset);
-            }
-            else
-            {
-                // Mặc định hoặc 4 trở lên
-                pos[0] = new Vector3(-4.5f, 0f, z - zOffset);
-                pos[1] = new Vector3(-1.5f, 0f, z);
-                pos[2] = new Vector3(1.5f, 0f, z);
-                pos[3] = new Vector3(4.5f, 0f, z - zOffset);
-                for (int i = 4; i < count; i++)
-                {
-                    pos[i] = new Vector3(1.5f * (i - 1.5f), 0f, z - zOffset * 2);
-                }
+                // Tính tọa độ X đối xứng qua trục X = 0
+                float x = (i - (count - 1) / 2.0f) * stepX;
+                
+                // Hiệu ứng cánh cung nhẹ (xa trung tâm X = 0 thì lùi nhẹ Z)
+                float z = zBase + offsetSign * (Mathf.Abs(x) * 0.12f);
+                
+                pos[i] = new Vector3(x, 0f, z);
             }
             return pos;
         }

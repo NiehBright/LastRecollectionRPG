@@ -76,6 +76,12 @@ namespace RPG.Combat
             velocity.space = ParticleSystemSimulationSpace.Local;
 
             // Chạy hiệu ứng
+            ParticleSystemRenderer rend = ps.GetComponent<ParticleSystemRenderer>();
+            if (rend != null)
+            {
+                rend.material = GetOrCreateParticleMaterial();
+            }
+
             ps.Play();
 
             Destroy(vfxGO, 1.0f);
@@ -179,7 +185,22 @@ namespace RPG.Combat
             colorOverLifetime.color = new ParticleSystem.MinMaxGradient(grad);
 
             // Chạy Particle System
+            ParticleSystemRenderer rend = ps.GetComponent<ParticleSystemRenderer>();
+            if (rend != null)
+            {
+                rend.material = GetOrCreateParticleMaterial();
+            }
+
             ps.Play();
+        }
+
+        private Material GetOrCreateParticleMaterial()
+        {
+            Shader shader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
+            if (shader == null) shader = Shader.Find("Particles/Standard Unlit");
+            if (shader == null) shader = Shader.Find("Sprites/Default");
+            
+            return new Material(shader);
         }
     }
 }

@@ -103,8 +103,11 @@ namespace RPG.Combat
             // Tạo Mô hình procedural 3D dựa trên theme color nếu chưa có
             CreateProceduralModel();
 
-            // Tạo Giao diện nổi trên đầu
-            CreateFloatingHUD();
+            // Tạo Giao diện nổi trên đầu (chỉ hiển thị cho kẻ địch)
+            if (!isAlly)
+            {
+                CreateFloatingHUD();
+            }
 
             Animator anim = GetComponentInChildren<Animator>();
             if (anim != null)

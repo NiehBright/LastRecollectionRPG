@@ -30,6 +30,11 @@ namespace RPG.Combat
         public TurnQueue turnQueue = new TurnQueue();
         public CombatCharacter activeCharacter;
 
+        [Header("Quản lý Camera JRPG")]
+        private Vector3 defaultCameraPos = new Vector3(0f, 6.5f, -12f);
+        private Quaternion defaultCameraRot = Quaternion.Euler(25f, 0f, 0f);
+        private Coroutine cameraMoveCoroutine;
+
         [Header("Cơ sở dữ liệu tương khắc")]
         public ElementWeaknessDatabase weaknessDatabase;
 
@@ -167,6 +172,8 @@ namespace RPG.Combat
 
                 // Reset Action Value của nhân vật này và chuyển lượt
                 turnQueue.ResetCharacterAV(activeCharacter);
+                // Khôi phục camera tổng
+                MoveCamera(defaultCameraPos, defaultCameraRot, 0.4f);
                 StartCoroutine(CoNextTurnDelay());
                 return;
             }
@@ -175,12 +182,20 @@ namespace RPG.Combat
             if (activeCharacter.isAlly)
             {
                 currentState = CombatState.PLAYERTURN;
+                // Zoom camera cận cảnh từ phía sau vai (JRPG Over-The-Shoulder) hướng về kẻ địch dựa trên hướng thế giới cố định
+                Vector3 focusPos = activeCharacter.transform.position + Vector3.back * 2.5f + Vector3.right * 1.0f + Vector3.up * 1.5f;
+                Vector3 targetLook = activeCharacter.transform.position + Vector3.forward * 3.0f + Vector3.up * 1.0f;
+                Quaternion focusRot = Quaternion.LookRotation(targetLook - focusPos);
+                MoveCamera(focusPos, focusRot, 0.6f);
+
                 // Báo UIManager hiển thị bảng kỹ năng cho người chơi chọn
                 UIManager.Instance.ShowActionPanel(activeCharacter);
             }
             else
             {
                 currentState = CombatState.ENEMYTURN;
+                // Nếu là lượt kẻ địch, đưa camera về camera tổng mặc định
+                MoveCamera(defaultCameraPos, defaultCameraRot, 0.5f);
                 // AI kẻ địch tự hành động
                 StartCoroutine(CoEnemyTurnAI());
             }
@@ -310,6 +325,9 @@ namespace RPG.Combat
             currentState = CombatState.BUSY;
             UIManager.Instance.HideActionPanel();
             attacker.HideTurnVFX(); // Ẩn hiệu ứng lượt đi khi bắt đầu hành động
+
+            // Bật lại camera tổng khi chọn xong kỹ năng để thi triển đòn đánh
+            MoveCamera(defaultCameraPos, defaultCameraRot, 0.4f);
 
             OnSkillCast?.Invoke(attacker, skill, targets);
             Debug.Log($"[CombatManager] {attacker.characterData.characterName} dùng '{skill.skillName}' lên {targets.Count} mục tiêu.");
@@ -569,6 +587,9 @@ namespace RPG.Combat
             UIManager.Instance.HideActionPanel();
             character.HideTurnVFX(); // Ẩn hiệu ứng lượt đi khi bắt đầu phòng thủ
 
+            // Bật lại camera tổng khi bắt đầu phòng thủ
+            MoveCamera(defaultCameraPos, defaultCameraRot, 0.4f);
+
             character.isGuarding = true;
             Debug.Log($"[CombatManager] {character.characterData.characterName} vào trạng thái phòng thủ (Guard).");
 
@@ -796,6 +817,41 @@ namespace RPG.Combat
                 case ElementType.Physical: return new Color(0.8f, 0.8f, 0.8f); // Xám vật lý
                 default: return Color.white;
             }
+        }
+
+        #endregion
+
+        #region Quản lý Camera JRPG
+        
+        public void MoveCamera(Vector3 targetPos, Quaternion targetRot, float duration)
+        {
+            if (cameraMoveCoroutine != null) StopCoroutine(cameraMoveCoroutine);
+            cameraMoveCoroutine = StartCoroutine(CoMoveCamera(targetPos, targetRot, duration));
+        }
+
+        private IEnumerator CoMoveCamera(Vector3 targetPos, Quaternion targetRot, float duration)
+        {
+            Camera mainCam = Camera.main;
+            if (mainCam == null) yield break;
+
+            Vector3 startPos = mainCam.transform.position;
+            Quaternion startRot = mainCam.transform.rotation;
+            float elapsed = 0f;
+
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                float t = elapsed / duration;
+                t = t * t * (3f - 2f * t); // SmoothStep
+
+                mainCam.transform.position = Vector3.Lerp(startPos, targetPos, t);
+                mainCam.transform.rotation = Quaternion.Slerp(startRot, targetRot, t);
+                yield return null;
+            }
+
+            mainCam.transform.position = targetPos;
+            mainCam.transform.rotation = targetRot;
+            cameraMoveCoroutine = null;
         }
 
         #endregion

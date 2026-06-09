@@ -335,35 +335,15 @@ namespace RPG.Combat
 
         private Vector3[] GetAllyFrontRowPositions(int count)
         {
-            float z = -4.5f;
-            float zOffset = 0.5f; // Đẩy 2 bên cánh lùi lại một chút
             Vector3[] pos = new Vector3[count];
+            float zBase = -4.5f;
+            float stepX = 2.2f;
 
-            if (count == 1)
+            for (int i = 0; i < count; i++)
             {
-                pos[0] = new Vector3(0f, 0f, z);
-            }
-            else if (count == 2)
-            {
-                pos[0] = new Vector3(-1.5f, 0f, z);
-                pos[1] = new Vector3(1.5f, 0f, z);
-            }
-            else if (count == 3)
-            {
-                pos[0] = new Vector3(-3.0f, 0f, z - zOffset);
-                pos[1] = new Vector3(0f, 0f, z);
-                pos[2] = new Vector3(3.0f, 0f, z - zOffset);
-            }
-            else if (count > 3)
-            {
-                pos[0] = new Vector3(-4.5f, 0f, z - zOffset);
-                pos[1] = new Vector3(-1.5f, 0f, z);
-                pos[2] = new Vector3(1.5f, 0f, z);
-                pos[3] = new Vector3(4.5f, 0f, z - zOffset);
-                for (int i = 4; i < count; i++)
-                {
-                    pos[i] = new Vector3(1.5f * (i - 1.5f), 0f, z - zOffset * 2);
-                }
+                float x = (i - (count - 1) / 2.0f) * stepX;
+                float z = zBase - (Mathf.Abs(x) * 0.12f); // lùi về sau -Z
+                pos[i] = new Vector3(x, 0f, z);
             }
             return pos;
         }
