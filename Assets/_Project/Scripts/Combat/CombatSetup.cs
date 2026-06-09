@@ -659,36 +659,20 @@ namespace RPG.Combat
 
         private Vector3[] GetDynamicPositions(int count, bool isAllySide)
         {
-            float z = isAllySide ? -4.5f : 4.5f;
-            float zOffset = isAllySide ? 0.5f : -0.5f; // Đẩy các vị trí ngoài lùi lại một chút
             Vector3[] pos = new Vector3[count];
+            float zBase = isAllySide ? -4.5f : 4.5f;
+            float offsetSign = isAllySide ? -1.0f : 1.0f; // Đồng minh lùi về -Z, kẻ địch lùi về +Z
+            float stepX = 2.2f; // Khoảng cách ngang giữa các nhân vật
 
-            if (count == 1)
+            for (int i = 0; i < count; i++)
             {
-                pos[0] = new Vector3(0f, 0f, z);
-            }
-            else if (count == 2)
-            {
-                pos[0] = new Vector3(-1.5f, 0f, z);
-                pos[1] = new Vector3(1.5f, 0f, z);
-            }
-            else if (count == 3)
-            {
-                pos[0] = new Vector3(-3.0f, 0f, z - zOffset);
-                pos[1] = new Vector3(0f, 0f, z);
-                pos[2] = new Vector3(3.0f, 0f, z - zOffset);
-            }
-            else
-            {
-                // Mặc định hoặc 4 trở lên
-                pos[0] = new Vector3(-4.5f, 0f, z - zOffset);
-                pos[1] = new Vector3(-1.5f, 0f, z);
-                pos[2] = new Vector3(1.5f, 0f, z);
-                pos[3] = new Vector3(4.5f, 0f, z - zOffset);
-                for (int i = 4; i < count; i++)
-                {
-                    pos[i] = new Vector3(1.5f * (i - 1.5f), 0f, z - zOffset * 2);
-                }
+                // Tính tọa độ X đối xứng qua trục X = 0
+                float x = (i - (count - 1) / 2.0f) * stepX;
+                
+                // Hiệu ứng cánh cung nhẹ (xa trung tâm X = 0 thì lùi nhẹ Z)
+                float z = zBase + offsetSign * (Mathf.Abs(x) * 0.12f);
+                
+                pos[i] = new Vector3(x, 0f, z);
             }
             return pos;
         }

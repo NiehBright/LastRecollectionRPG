@@ -26,4 +26,4 @@ MonoBehaviour:
   skillColor: {r: 1, g: 0, b: 0, a: 1}
   animDuration: 1
   skillClip: {fileID: -6633077001092557518, guid: e97f1d3805faec548864fb851ad1683a, type: 3}
-  skillImpactVFX: {fileID: 0}
+  skillImpactVFX: {fileID: 5994169781622799023, guid: 3fd4f4a70252fe940aa09834467733bf, type: 3}
