@@ -49,4 +49,16 @@ namespace RPG.Combat
         REFLECT,
         COMBO_TRIGGER
     }
+
+    public enum SkillRangeType
+    {
+        MELEE,
+        RANGED
+    }
+
+    public enum RangedVfxType
+    {
+        SPAWN_AT_TARGET,
+        PROJECTILE
+    }
 }

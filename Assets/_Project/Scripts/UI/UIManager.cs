@@ -23,6 +23,7 @@ namespace RPG.Combat
         private Transform enemyTargetHUDPanel;
         private GameObject enemyTargetCardTemplate;
         private List<GameObject> activeEnemyHUDs = new List<GameObject>();
+        private List<CombatCharacter> currentEnemyTargets = new List<CombatCharacter>();
 
         private Transform tooltipPanel;
         private Text tooltipText;
@@ -1794,6 +1795,7 @@ namespace RPG.Combat
             // Dọn dẹp các HUD cũ
             HideEnemyTargetHUD();
 
+            currentEnemyTargets = new List<CombatCharacter>(targets);
             enemyTargetHUDPanel.gameObject.SetActive(true);
 
             // Xác định template
@@ -1814,92 +1816,116 @@ namespace RPG.Combat
                 cardGO.SetActive(true);
                 activeEnemyHUDs.Add(cardGO);
 
-                // Cập nhật Tên
-                Text nameText = cardGO.transform.Find("NameText")?.GetComponent<Text>();
-                if (nameText != null) nameText.text = enemy.characterData.characterName;
+                PopulateEnemyHUDCard(cardGO, enemy);
+            }
+        }
 
-                // Cập nhật Thanh máu HP
-                Image hpFill = cardGO.transform.Find("HPBar_Bg/HPBar_Fill")?.GetComponent<Image>();
-                if (hpFill != null)
-                {
-                    hpFill.fillAmount = enemy.maxHP > 0f ? enemy.currentHP / enemy.maxHP : 0f;
-                }
-                Text hpText = cardGO.transform.Find("HPBar_Bg/HPText")?.GetComponent<Text>();
-                if (hpText != null)
-                {
-                    hpText.text = $"HP: {enemy.currentHP:F0}/{enemy.maxHP:F0}";
-                }
+        public void UpdateEnemyTargetsHUD()
+        {
+            if (enemyTargetHUDPanel == null || currentEnemyTargets == null || activeEnemyHUDs == null) return;
 
-                // Cập nhật Thanh mana (Energy)
-                Image mpFill = cardGO.transform.Find("MPBar_Bg/MPBar_Fill")?.GetComponent<Image>();
-                if (mpFill != null)
-                {
-                    mpFill.fillAmount = enemy.currentEnergy / 100f;
-                }
-                Text mpText = cardGO.transform.Find("MPBar_Bg/MPText")?.GetComponent<Text>();
-                if (mpText != null)
-                {
-                    mpText.text = $"MP: {enemy.currentEnergy:F0}/100";
-                }
+            for (int i = 0; i < currentEnemyTargets.Count; i++)
+            {
+                var enemy = currentEnemyTargets[i];
+                if (enemy == null || i >= activeEnemyHUDs.Count) continue;
 
-                // Vẽ các buff
-                Transform buffContainer = cardGO.transform.Find("BuffContainer");
-                if (buffContainer != null)
+                GameObject cardGO = activeEnemyHUDs[i];
+                if (cardGO != null)
                 {
-                    foreach (Transform child in buffContainer)
+                    PopulateEnemyHUDCard(cardGO, enemy);
+                }
+            }
+        }
+
+        private void PopulateEnemyHUDCard(GameObject cardGO, CombatCharacter enemy)
+        {
+            if (cardGO == null || enemy == null) return;
+
+            // Cập nhật Tên
+            Text nameText = cardGO.transform.Find("NameText")?.GetComponent<Text>();
+            if (nameText != null) nameText.text = enemy.characterData.characterName;
+
+            // Cập nhật Thanh máu HP
+            Image hpFill = cardGO.transform.Find("HPBar_Bg/HPBar_Fill")?.GetComponent<Image>();
+            if (hpFill != null)
+            {
+                hpFill.fillAmount = enemy.maxHP > 0f ? enemy.currentHP / enemy.maxHP : 0f;
+            }
+            Text hpText = cardGO.transform.Find("HPBar_Bg/HPText")?.GetComponent<Text>();
+            if (hpText != null)
+            {
+                hpText.text = $"HP: {enemy.currentHP:F0}/{enemy.maxHP:F0}";
+            }
+
+            // Cập nhật Thanh mana (Energy)
+            Image mpFill = cardGO.transform.Find("MPBar_Bg/MPBar_Fill")?.GetComponent<Image>();
+            if (mpFill != null)
+            {
+                mpFill.fillAmount = enemy.currentEnergy / 100f;
+            }
+            Text mpText = cardGO.transform.Find("MPBar_Bg/MPText")?.GetComponent<Text>();
+            if (mpText != null)
+            {
+                mpText.text = $"MP: {enemy.currentEnergy:F0}/100";
+            }
+
+            // Vẽ các buff
+            Transform buffContainer = cardGO.transform.Find("BuffContainer");
+            if (buffContainer != null)
+            {
+                foreach (Transform child in buffContainer)
+                {
+                    Destroy(child.gameObject);
+                }
+                foreach (var effect in enemy.activeEffects)
+                {
+                    GameObject iconGO = new GameObject("EnemyBuffIcon");
+                    iconGO.transform.SetParent(buffContainer, false);
+
+                    RectTransform iconRect = iconGO.AddComponent<RectTransform>();
+                    iconRect.sizeDelta = new Vector2(12f, 12f);
+                    iconRect.localScale = Vector3.one;
+                    iconRect.localPosition = Vector3.zero;
+                    iconRect.localRotation = Quaternion.identity;
+
+                    Image iconImg = iconGO.AddComponent<Image>();
+                    iconImg.color = effect.data.effectColor;
+
+                    if (effect.data.icon != null)
                     {
-                        Destroy(child.gameObject);
+                        iconImg.sprite = effect.data.icon;
                     }
-                    foreach (var effect in enemy.activeEffects)
+                    else
                     {
-                        GameObject iconGO = new GameObject("EnemyBuffIcon");
-                        iconGO.transform.SetParent(buffContainer, false);
-
-                        RectTransform iconRect = iconGO.AddComponent<RectTransform>();
-                        iconRect.sizeDelta = new Vector2(12f, 12f);
-                        iconRect.localScale = Vector3.one;
-                        iconRect.localPosition = Vector3.zero;
-                        iconRect.localRotation = Quaternion.identity;
-
-                        Image iconImg = iconGO.AddComponent<Image>();
-                        iconImg.color = effect.data.effectColor;
-
-                        if (effect.data.icon != null)
-                        {
-                            iconImg.sprite = effect.data.icon;
-                        }
-                        else
-                        {
-                            iconImg.sprite = GetDefaultWhiteSprite();
-                        }
-                        iconImg.raycastTarget = true;
-
-                        // Text số lượt còn lại
-                        GameObject textGO = new GameObject("TurnText");
-                        textGO.transform.SetParent(iconGO.transform, false);
-                        RectTransform textRect = textGO.AddComponent<RectTransform>();
-                        textRect.anchorMin = Vector2.zero;
-                        textRect.anchorMax = Vector2.one;
-                        textRect.offsetMin = Vector2.zero;
-                        textRect.offsetMax = Vector2.zero;
-                        textRect.localPosition = Vector3.zero;
-                        textRect.localScale = Vector3.one;
-
-                        Text txt = textGO.AddComponent<Text>();
-                        txt.text = effect.turnsRemaining.ToString();
-                        txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-                        txt.fontSize = 7;
-                        txt.alignment = TextAnchor.LowerRight;
-                        txt.color = Color.white;
-
-                        Outline outline = textGO.AddComponent<Outline>();
-                        outline.effectColor = Color.black;
-                        outline.effectDistance = new Vector2(1f, -1f);
-
-                        // Thêm Tooltip Trigger
-                        BuffTooltipTrigger trigger = iconGO.AddComponent<BuffTooltipTrigger>();
-                        trigger.Initialize(effect);
+                        iconImg.sprite = GetDefaultWhiteSprite();
                     }
+                    iconImg.raycastTarget = true;
+
+                    // Text số lượt còn lại
+                    GameObject textGO = new GameObject("TurnText");
+                    textGO.transform.SetParent(iconGO.transform, false);
+                    RectTransform textRect = textGO.AddComponent<RectTransform>();
+                    textRect.anchorMin = Vector2.zero;
+                    textRect.anchorMax = Vector2.one;
+                    textRect.offsetMin = Vector2.zero;
+                    textRect.offsetMax = Vector2.zero;
+                    textRect.localPosition = Vector3.zero;
+                    textRect.localScale = Vector3.one;
+
+                    Text txt = textGO.AddComponent<Text>();
+                    txt.text = effect.turnsRemaining.ToString();
+                    txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                    txt.fontSize = 7;
+                    txt.alignment = TextAnchor.LowerRight;
+                    txt.color = Color.white;
+
+                    Outline outline = textGO.AddComponent<Outline>();
+                    outline.effectColor = Color.black;
+                    outline.effectDistance = new Vector2(1f, -1f);
+
+                    // Thêm Tooltip Trigger
+                    BuffTooltipTrigger trigger = iconGO.AddComponent<BuffTooltipTrigger>();
+                    trigger.Initialize(effect);
                 }
             }
         }
@@ -1916,6 +1942,11 @@ namespace RPG.Combat
                     }
                 }
                 activeEnemyHUDs.Clear();
+            }
+
+            if (currentEnemyTargets != null)
+            {
+                currentEnemyTargets.Clear();
             }
 
             if (enemyTargetHUDPanel != null)

@@ -566,6 +566,11 @@ namespace RPG.Combat
 
                         OnDamageDealt?.Invoke(target, damage, isCrit);
                     }
+
+                    if (UIManager.Instance != null)
+                    {
+                        UIManager.Instance.UpdateEnemyTargetsHUD();
+                    }
                 }, 
                 // Khi hoàn thành quay về chỗ cũ
                 () => {

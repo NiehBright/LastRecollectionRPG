@@ -4,15 +4,31 @@ namespace RPG.Combat
 {
     public class ProceduralVFX : MonoBehaviour
     {
-        public static ProceduralVFX Instance { get; private set; }
+        private static ProceduralVFX instance;
+        public static ProceduralVFX Instance
+        {
+            get
+            {
+                if (instance == null)
+                {
+                    instance = FindObjectOfType<ProceduralVFX>();
+                    if (instance == null)
+                    {
+                        GameObject go = new GameObject("ProceduralVFX_Auto");
+                        instance = go.AddComponent<ProceduralVFX>();
+                    }
+                }
+                return instance;
+            }
+        }
 
         private void Awake()
         {
-            if (Instance == null)
+            if (instance == null)
             {
-                Instance = this;
+                instance = this;
             }
-            else
+            else if (instance != this)
             {
                 Destroy(gameObject);
             }

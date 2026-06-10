@@ -802,33 +802,57 @@ namespace RPG.Combat
         private IEnumerator CoAttackAnimation(Vector3 targetPosition, SkillData skill, Action onImpact, Action onComplete)
         {
             Vector3 startPos = originalPosition;
+            bool isRanged = skill != null && skill.rangeType == SkillRangeType.RANGED;
+            bool isProjectile = isRanged && skill != null && skill.rangedVfxType == RangedVfxType.PROJECTILE && skill.projectileVFX != null;
+            bool isProjectileFlying = false;
             
             Animator anim = GetComponentInChildren<Animator>();
-            if (anim != null && anim.runtimeAnimatorController != null && anim.layerCount > 0)
+
+            if (!isRanged)
             {
-                if (anim.HasState(0, Animator.StringToHash("Run")))
+                if (anim != null && anim.runtimeAnimatorController != null && anim.layerCount > 0)
                 {
-                    anim.CrossFadeInFixedTime("Run", 0.1f);
+                    if (anim.HasState(0, Animator.StringToHash("Run")))
+                    {
+                        anim.CrossFadeInFixedTime("Run", 0.1f);
+                    }
                 }
+
+                // 1. Dash tới mục tiêu (0.2s)
+                float elapsed = 0f;
+                float duration = 0.2f;
+                Vector3 strikePos = targetPosition + (startPos - targetPosition).normalized * 1.2f; // Dừng lại trước mục tiêu 1.2m
+
+                while (elapsed < duration)
+                {
+                    elapsed += Time.deltaTime;
+                    float t = elapsed / duration;
+                    transform.position = Vector3.Lerp(startPos, strikePos, t * t); // Lerp mượt toàn bộ nhân vật
+                    yield return null;
+                }
+                transform.position = strikePos;
             }
-
-            // 1. Dash tới mục tiêu (0.2s)
-            float elapsed = 0f;
-            float duration = 0.2f;
-            Vector3 strikePos = targetPosition + (startPos - targetPosition).normalized * 1.2f; // Dừng lại trước mục tiêu 1.2m
-
-            while (elapsed < duration)
+            else
             {
-                elapsed += Time.deltaTime;
-                float t = elapsed / duration;
-                transform.position = Vector3.Lerp(startPos, strikePos, t * t); // Lerp mượt toàn bộ nhân vật
-                yield return null;
+                // Ranged: Không di chuyển
+                transform.position = startPos;
             }
-            transform.position = strikePos;
 
             // Thiết lập callback nhận sự kiện đòn đánh
             hasReceivedHitEvent = false;
-            pendingImpactCallback = onImpact;
+            if (isProjectile)
+            {
+                isProjectileFlying = true;
+                pendingImpactCallback = () => {
+                    StartCoroutine(CoFlyProjectile(startPos, targetPosition, skill.projectileVFX, onImpact, () => {
+                        isProjectileFlying = false;
+                    }));
+                };
+            }
+            else
+            {
+                pendingImpactCallback = onImpact;
+            }
 
             // 2. Chạy hoạt ảnh tấn công
             if (anim != null && anim.runtimeAnimatorController != null && anim.layerCount > 0)
@@ -882,24 +906,29 @@ namespace RPG.Combat
                 yield return new WaitForSeconds(animLength - elapsedWait);
             }
 
-            // 4. Lùi về vị trí cũ (0.3s)
-            if (anim != null && anim.runtimeAnimatorController != null && anim.layerCount > 0)
+            if (!isRanged)
             {
-                if (anim.HasState(0, Animator.StringToHash("Run")))
+                // 4. Lùi về vị trí cũ (0.3s)
+                if (anim != null && anim.runtimeAnimatorController != null && anim.layerCount > 0)
                 {
-                    anim.CrossFadeInFixedTime("Run", 0.1f);
+                    if (anim.HasState(0, Animator.StringToHash("Run")))
+                    {
+                        anim.CrossFadeInFixedTime("Run", 0.1f);
+                    }
+                }
+
+                float elapsed = 0f;
+                float duration = 0.3f;
+                Vector3 strikePos = transform.position;
+                while (elapsed < duration)
+                {
+                    elapsed += Time.deltaTime;
+                    float t = elapsed / duration;
+                    transform.position = Vector3.Lerp(strikePos, startPos, t);
+                    yield return null;
                 }
             }
 
-            elapsed = 0f;
-            duration = 0.3f;
-            while (elapsed < duration)
-            {
-                elapsed += Time.deltaTime;
-                float t = elapsed / duration;
-                transform.position = Vector3.Lerp(strikePos, startPos, t);
-                yield return null;
-            }
             transform.position = startPos;
 
             if (anim != null && anim.runtimeAnimatorController != null && anim.layerCount > 0)
@@ -911,8 +940,64 @@ namespace RPG.Combat
                 }
             }
 
+            // Chờ đạn bay tới đích (nếu có projectile)
+            while (isProjectileFlying)
+            {
+                yield return null;
+            }
+
             activeAnimCoroutine = null;
             onComplete?.Invoke();
+        }
+
+        private IEnumerator CoFlyProjectile(Vector3 startPos, Vector3 targetPos, GameObject projectilePrefab, Action onImpact, Action onArrival)
+        {
+            Vector3 spawnPos = startPos + Vector3.up * 1.0f;
+            Vector3 destination = targetPos + Vector3.up * 1.0f;
+
+            Quaternion rotation = Quaternion.identity;
+            Vector3 direction = destination - spawnPos;
+            if (direction != Vector3.zero)
+            {
+                rotation = Quaternion.LookRotation(direction);
+            }
+
+            GameObject projectileInstance = Instantiate(projectilePrefab, spawnPos, rotation);
+
+            float speed = 15f; 
+            float distance = Vector3.Distance(spawnPos, destination);
+            float duration = distance / speed;
+            if (duration < 0.1f) duration = 0.1f; 
+
+            float elapsed = 0f;
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                float t = elapsed / duration;
+                if (projectileInstance != null)
+                {
+                    projectileInstance.transform.position = Vector3.Lerp(spawnPos, destination, t);
+                }
+                yield return null;
+            }
+
+            if (projectileInstance != null)
+            {
+                var renderers = projectileInstance.GetComponentsInChildren<Renderer>();
+                foreach (var r in renderers) r.enabled = false;
+                var colliders = projectileInstance.GetComponentsInChildren<Collider>();
+                foreach (var c in colliders) c.enabled = false;
+                var particles = projectileInstance.GetComponentsInChildren<ParticleSystem>();
+                foreach (var ps in particles)
+                {
+                    var emission = ps.emission;
+                    emission.enabled = false;
+                }
+                Destroy(projectileInstance, 1.5f);
+            }
+
+            onImpact?.Invoke();
+            onArrival?.Invoke();
         }
 
         public void PlayHitShake()
