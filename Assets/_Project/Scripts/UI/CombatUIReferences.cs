@@ -13,6 +13,8 @@ namespace RPG.Combat
         public Transform targetSelectionPanel;
         public Transform endScreenPanel;
         public Transform recollectionBannerPanel;
+        public Transform enemyTargetHUDPanel;
+        public GameObject enemyTargetCardTemplate;
 
         [Header("Texts")]
         public Text descriptionText;

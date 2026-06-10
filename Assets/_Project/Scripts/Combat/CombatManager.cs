@@ -332,6 +332,15 @@ namespace RPG.Combat
             OnSkillCast?.Invoke(attacker, skill, targets);
             Debug.Log($"[CombatManager] {attacker.characterData.characterName} dùng '{skill.skillName}' lên {targets.Count} mục tiêu.");
 
+            if (attacker.isAlly && UIManager.Instance != null)
+            {
+                List<CombatCharacter> enemyTargets = targets.FindAll(t => !t.isAlly);
+                if (enemyTargets.Count > 0)
+                {
+                    UIManager.Instance.ShowEnemyTargetsHUD(enemyTargets);
+                }
+            }
+
             // Trừ năng lượng / hồi năng lượng cho người dùng kỹ năng
             attacker.UseSkill(skill);
 
@@ -560,6 +569,11 @@ namespace RPG.Combat
                 }, 
                 // Khi hoàn thành quay về chỗ cũ
                 () => {
+                    if (UIManager.Instance != null)
+                    {
+                        UIManager.Instance.HideEnemyTargetHUD();
+                    }
+
                     // Trừ lượt Recollection sau khi đồng minh hàng trước đi xong
                     if (attacker.isAlly && !isExecutingUltimateInterrupt && RecollectionManager.Instance != null)
                     {
