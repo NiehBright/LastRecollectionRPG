@@ -8,6 +8,13 @@ namespace RPG.Combat
         [Header("Cơ sở dữ liệu tương khắc")]
         private ElementWeaknessDatabase weaknessDb;
 
+        [Header("Spawn Points Setup (Optional)")]
+        public Transform spawnPointsAlliesParent;
+        public Transform spawnPointsEnemiesParent;
+
+        [Header("Arena Map (Optional)")]
+        public GameObject arenaMapObject;
+
         private void Start()
         {
 #if UNITY_EDITOR
@@ -50,7 +57,13 @@ namespace RPG.Combat
                 lightGO.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
             }
 
-            // Tạo Mặt đất (Ground Plane)
+            // Tạo Mặt đất (Ground Plane) nếu chưa có map được thiết lập sẵn
+            if (arenaMapObject != null || GameObject.Find("CombatArena") != null)
+            {
+                Debug.Log("[CombatSetup] Đã có bản đồ CombatArena được thiết lập sẵn trong scene. Không tạo mặt đất mặc định.");
+                return;
+            }
+
             GameObject ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
             ground.name = "BattleGround";
             ground.transform.position = Vector3.zero;
@@ -124,7 +137,7 @@ namespace RPG.Combat
                 }
 
                 int allyCount = cleanAllies.Count;
-                Vector3[] allyPositions = GetDynamicPositions(allyCount, true);
+                Vector3[] allyPositions = GetCharacterSpawnPositions(allyCount, true);
                 for (int i = 0; i < allyCount; i++)
                 {
                     CharacterData data = cleanAllies[i];
@@ -152,7 +165,7 @@ namespace RPG.Combat
                     }
 
                     CleanOverworldComponents(go);
-                    SetCombatRotation(go, true);
+                    SetCombatRotation(go, true, GetCharacterSpawnPoint(i, true));
                     go.SetActive(true); // Kích hoạt lại GameObject sau khi đã dọn dẹp sạch component overworld
 
                     CombatCharacter cc = go.GetComponent<CombatCharacter>();
@@ -172,7 +185,7 @@ namespace RPG.Combat
                 }
 
                 int enemyCount = cleanEnemies.Count;
-                Vector3[] enemyPositions = GetDynamicPositions(enemyCount, false);
+                Vector3[] enemyPositions = GetCharacterSpawnPositions(enemyCount, false);
                 for (int i = 0; i < enemyCount; i++)
                 {
                     CharacterData data = cleanEnemies[i];
@@ -194,7 +207,7 @@ namespace RPG.Combat
                     }
 
                     CleanOverworldComponents(go);
-                    SetCombatRotation(go, false);
+                    SetCombatRotation(go, false, GetCharacterSpawnPoint(i, false));
                     go.SetActive(true); // Kích hoạt lại GameObject sau khi đã dọn dẹp sạch component overworld
 
                     CombatCharacter cc = go.GetComponent<CombatCharacter>();
@@ -250,8 +263,8 @@ namespace RPG.Combat
                     tempEnemies.Sort((a, b) => a.transform.position.x.CompareTo(b.transform.position.x));
 
                     // Lấy các vị trí đối xứng hàng ngang chuẩn
-                    Vector3[] allyPositions = GetDynamicPositions(tempAllies.Count, true);
-                    Vector3[] enemyPositions = GetDynamicPositions(tempEnemies.Count, false);
+                    Vector3[] allyPositions = GetCharacterSpawnPositions(tempAllies.Count, true);
+                    Vector3[] enemyPositions = GetCharacterSpawnPositions(tempEnemies.Count, false);
 
                     int allyIndex = 0;
                     foreach (var cc in tempAllies)
@@ -266,7 +279,7 @@ namespace RPG.Combat
 
                         cc.Initialize(cc.characterData, true);
                         CleanOverworldComponents(cc.gameObject);
-                        SetCombatRotation(cc.gameObject, true);
+                        SetCombatRotation(cc.gameObject, true, GetCharacterSpawnPoint(allyIndex, true));
 
                         allies.Add(cc);
                         allyIndex++;
@@ -285,7 +298,7 @@ namespace RPG.Combat
 
                         cc.Initialize(cc.characterData, false);
                         CleanOverworldComponents(cc.gameObject);
-                        SetCombatRotation(cc.gameObject, false);
+                        SetCombatRotation(cc.gameObject, false, GetCharacterSpawnPoint(enemyIndex, false));
 
                         enemies.Add(cc);
                         enemyIndex++;
@@ -296,28 +309,15 @@ namespace RPG.Combat
                     // 4. Nếu hoàn toàn trống trơ, tiến hành tạo Capsule/Cylinder dự phòng
                     Debug.Log("[CombatSetup] Scene trống trơn. Tạo các Capsule/Cylinder dự phòng bằng code...");
                     
-                    Vector3[] allyPositions = new Vector3[]
-                    {
-                        new Vector3(-4.5f, 0f, -4f),
-                        new Vector3(-1.5f, 0f, -4.5f),
-                        new Vector3(1.5f, 0f, -4.5f),
-                        new Vector3(4.5f, 0f, -4f)
-                    };
-
-                    Vector3[] enemyPositions = new Vector3[]
-                    {
-                        new Vector3(-4.5f, 0f, 4f),
-                        new Vector3(-1.5f, 0f, 4.5f),
-                        new Vector3(1.5f, 0f, 4.5f),
-                        new Vector3(4.5f, 0f, 4f)
-                    };
+                    Vector3[] allyPositions = GetCharacterSpawnPositions(4, true);
+                    Vector3[] enemyPositions = GetCharacterSpawnPositions(4, false);
 
                     for (int i = 0; i < 4; i++)
                     {
                         GameObject go = new GameObject("Ally_" + allyDatas[i].characterName);
                         go.transform.position = allyPositions[i];
                         CleanOverworldComponents(go);
-                        SetCombatRotation(go, true);
+                        SetCombatRotation(go, true, GetCharacterSpawnPoint(i, true));
 
                         CombatCharacter cc = go.AddComponent<CombatCharacter>();
                         cc.Initialize(allyDatas[i], true);
@@ -329,7 +329,7 @@ namespace RPG.Combat
                         GameObject go = new GameObject("Enemy_" + enemyDatas[i].characterName);
                         go.transform.position = enemyPositions[i];
                         CleanOverworldComponents(go);
-                        SetCombatRotation(go, false);
+                        SetCombatRotation(go, false, GetCharacterSpawnPoint(i, false));
 
                         CombatCharacter cc = go.AddComponent<CombatCharacter>();
                         cc.Initialize(enemyDatas[i], false);
@@ -368,12 +368,12 @@ namespace RPG.Combat
             foreach (var c in cols) DestroyImmediate(c);
         }
 
-        private void SetCombatRotation(GameObject go, bool isAlly)
+        private void SetCombatRotation(GameObject go, bool isAlly, Transform spawnPoint = null)
         {
             if (go == null) return;
 
-            // Allies hướng lên trên (+Z: xoay 0 Y), Enemies hướng xuống dưới (-Z: xoay 180 Y)
             float targetY = isAlly ? 0f : 180f;
+            Quaternion targetRotation = spawnPoint != null ? spawnPoint.rotation : Quaternion.Euler(0f, targetY, 0f);
 
             // Kiểm tra xem model có bị xoay ngược 180 độ sẵn không (ví dụ ModelRoot xoay ngược)
             Transform modelRoot = go.transform.Find("ModelRoot");
@@ -397,12 +397,12 @@ namespace RPG.Combat
                 if (Mathf.Approximately(localY, 180f) || (localY > 170f && localY < 190f))
                 {
                     // Model con bị xoay ngược 180 độ, ta bù lại bằng cách xoay root ngược 180 độ so với hướng gốc
-                    go.transform.rotation = Quaternion.Euler(0f, targetY + 180f, 0f);
+                    go.transform.rotation = targetRotation * Quaternion.Euler(0f, 180f, 0f);
                     return;
                 }
             }
 
-            go.transform.rotation = Quaternion.Euler(0f, targetY, 0f);
+            go.transform.rotation = targetRotation;
         }
 
         #region Sinh Dữ Liệu Nhân Vật bằng C# (In-Memory)
@@ -698,6 +698,167 @@ namespace RPG.Combat
                 pos[i] = new Vector3(x, 0f, z);
             }
             return pos;
+        }
+
+        private Vector3[] GetCharacterSpawnPositions(int count, bool isAllySide)
+        {
+            Transform parent = isAllySide ? spawnPointsAlliesParent : spawnPointsEnemiesParent;
+            if (parent != null && parent.childCount > 0)
+            {
+                Vector3[] pos = new Vector3[count];
+                List<Transform> children = new List<Transform>();
+                for (int i = 0; i < parent.childCount; i++)
+                {
+                    children.Add(parent.GetChild(i));
+                }
+                children.Sort((a, b) => a.position.x.CompareTo(b.position.x));
+
+                for (int i = 0; i < count; i++)
+                {
+                    if (i < children.Count)
+                    {
+                        pos[i] = children[i].position;
+                    }
+                    else
+                    {
+                        pos[i] = children[children.Count - 1].position + Vector3.right * (i - children.Count + 1) * 2f;
+                    }
+                }
+                return pos;
+            }
+            return GetDynamicPositions(count, isAllySide);
+        }
+
+        private Transform GetCharacterSpawnPoint(int index, bool isAllySide)
+        {
+            Transform parent = isAllySide ? spawnPointsAlliesParent : spawnPointsEnemiesParent;
+            if (parent != null && parent.childCount > 0)
+            {
+                List<Transform> children = new List<Transform>();
+                for (int i = 0; i < parent.childCount; i++)
+                {
+                    children.Add(parent.GetChild(i));
+                }
+                children.Sort((a, b) => a.position.x.CompareTo(b.position.x));
+                
+                if (index < children.Count)
+                {
+                    return children[index];
+                }
+            }
+            return null;
+        }
+
+        private void OnDrawGizmos()
+        {
+            if (spawnPointsAlliesParent != null)
+            {
+                Gizmos.color = Color.green;
+                for (int i = 0; i < spawnPointsAlliesParent.childCount; i++)
+                {
+                    Transform spawnPoint = spawnPointsAlliesParent.GetChild(i);
+                    if (spawnPoint != null)
+                    {
+                        Gizmos.DrawWireSphere(spawnPoint.position, 0.4f);
+                        Gizmos.DrawLine(spawnPoint.position, spawnPoint.position + spawnPoint.forward * 0.8f);
+                    }
+                }
+            }
+
+            if (spawnPointsEnemiesParent != null)
+            {
+                Gizmos.color = Color.red;
+                for (int i = 0; i < spawnPointsEnemiesParent.childCount; i++)
+                {
+                    Transform spawnPoint = spawnPointsEnemiesParent.GetChild(i);
+                    if (spawnPoint != null)
+                    {
+                        Gizmos.DrawWireSphere(spawnPoint.position, 0.4f);
+                        Gizmos.DrawLine(spawnPoint.position, spawnPoint.position + spawnPoint.forward * 0.8f);
+                    }
+                }
+            }
+        }
+
+        [ContextMenu("Generate Combat Arena in Hierarchy")]
+        public void GenerateCombatArena()
+        {
+            GameObject arenaGO = GameObject.Find("CombatArena");
+            if (arenaGO == null)
+            {
+                arenaGO = new GameObject("CombatArena");
+                arenaGO.transform.position = Vector3.zero;
+            }
+
+            Transform groundTransform = arenaGO.transform.Find("BattleGround");
+            if (groundTransform == null)
+            {
+                GameObject ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
+                ground.name = "BattleGround";
+                ground.transform.SetParent(arenaGO.transform, false);
+                ground.transform.position = Vector3.zero;
+                ground.transform.localScale = new Vector3(3f, 1f, 3f);
+                
+                Renderer r = ground.GetComponent<Renderer>();
+                Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+                if (shader == null) shader = Shader.Find("Standard");
+                if (shader != null)
+                {
+                    Material mat = new Material(shader);
+                    mat.color = new Color(0.15f, 0.18f, 0.22f);
+                    r.material = mat;
+                }
+                groundTransform = ground.transform;
+            }
+            arenaMapObject = arenaGO;
+
+            Transform alliesParent = arenaGO.transform.Find("SpawnPoints_Allies");
+            if (alliesParent == null)
+            {
+                GameObject apGO = new GameObject("SpawnPoints_Allies");
+                apGO.transform.SetParent(arenaGO.transform, false);
+                alliesParent = apGO.transform;
+            }
+            spawnPointsAlliesParent = alliesParent;
+
+            Vector3[] defaultAllyPos = GetDynamicPositions(4, true);
+            for (int i = 0; i < 4; i++)
+            {
+                string name = $"AllySpawn_{i}";
+                Transform spawnPoint = alliesParent.Find(name);
+                if (spawnPoint == null)
+                {
+                    GameObject spGO = new GameObject(name);
+                    spGO.transform.SetParent(alliesParent, false);
+                    spGO.transform.position = defaultAllyPos[i];
+                    spGO.transform.rotation = Quaternion.Euler(0f, 0f, 0f);
+                }
+            }
+
+            Transform enemiesParent = arenaGO.transform.Find("SpawnPoints_Enemies");
+            if (enemiesParent == null)
+            {
+                GameObject epGO = new GameObject("SpawnPoints_Enemies");
+                epGO.transform.SetParent(arenaGO.transform, false);
+                enemiesParent = epGO.transform;
+            }
+            spawnPointsEnemiesParent = enemiesParent;
+
+            Vector3[] defaultEnemyPos = GetDynamicPositions(4, false);
+            for (int i = 0; i < 4; i++)
+            {
+                string name = $"EnemySpawn_{i}";
+                Transform spawnPoint = enemiesParent.Find(name);
+                if (spawnPoint == null)
+                {
+                    GameObject spGO = new GameObject(name);
+                    spGO.transform.SetParent(enemiesParent, false);
+                    spGO.transform.position = defaultEnemyPos[i];
+                    spGO.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+                }
+            }
+
+            Debug.Log("[CombatSetup] Đã sinh thành công cấu trúc Combat Arena (Map & Điểm Spawn) trên Hierarchy!");
         }
 
         #endregion
