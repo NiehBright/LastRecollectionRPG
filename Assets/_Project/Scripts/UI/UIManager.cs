@@ -20,6 +20,9 @@ namespace RPG.Combat
         private Transform endScreenPanel;
         private Transform targetSelectionPanel;
         private Transform recollectionBannerPanel;
+        private Transform enemyTargetHUDPanel;
+        private GameObject enemyTargetCardTemplate;
+        private List<GameObject> activeEnemyHUDs = new List<GameObject>();
 
         private Transform tooltipPanel;
         private Text tooltipText;
@@ -185,6 +188,13 @@ namespace RPG.Combat
                     targetSelectionPanel = refs.targetSelectionPanel;
                     endScreenPanel = refs.endScreenPanel;
                     recollectionBannerPanel = refs.recollectionBannerPanel;
+                    enemyTargetHUDPanel = refs.enemyTargetHUDPanel;
+                    enemyTargetCardTemplate = refs.enemyTargetCardTemplate;
+
+                    if (enemyTargetCardTemplate == null && enemyTargetHUDPanel != null)
+                    {
+                        enemyTargetCardTemplate = enemyTargetHUDPanel.Find("EnemyTargetCardTemplate")?.gameObject;
+                    }
 
                     descriptionText = refs.descriptionText;
                     endScreenText = refs.endScreenText;
@@ -238,25 +248,27 @@ namespace RPG.Combat
             // Tạo Banner dynamic fallback
             CreateProceduralRecollectionBanner();
 
-            // 2. Tạo Bảng hàng chờ Turn Queue (Top Center)
+            // 2. Tạo Bảng hàng chờ Turn Queue (Top Left - Xếp Dọc)
             GameObject turnPanelGO = new GameObject("TurnQueuePanel");
-            turnPanelGO.transform.SetParent(overlayCanvas.transform);
+            turnPanelGO.transform.SetParent(overlayCanvas.transform, false);
             RectTransform turnRect = turnPanelGO.AddComponent<RectTransform>();
-            turnRect.anchorMin = new Vector2(0.5f, 1f);
-            turnRect.anchorMax = new Vector2(0.5f, 1f);
-            turnRect.pivot = new Vector2(0.5f, 1f);
-            turnRect.anchoredPosition = new Vector2(0f, -20f);
-            turnRect.sizeDelta = new Vector2(600f, 60f);
+            turnRect.anchorMin = new Vector2(0f, 1f);
+            turnRect.anchorMax = new Vector2(0f, 1f);
+            turnRect.pivot = new Vector2(0f, 1f);
+            turnRect.anchoredPosition = new Vector2(20f, -20f);
+            turnRect.sizeDelta = new Vector2(90f, 450f);
             turnRect.localScale = Vector3.one;
 
             Image turnImg = turnPanelGO.AddComponent<Image>();
             turnImg.color = new Color(0.1f, 0.1f, 0.1f, 0.6f);
 
-            HorizontalLayoutGroup turnLayout = turnPanelGO.AddComponent<HorizontalLayoutGroup>();
-            turnLayout.childAlignment = TextAnchor.MiddleCenter;
-            turnLayout.spacing = 10f;
-            turnLayout.childControlHeight = false; // Tắt điều khiển chiều cao của con
-            turnLayout.childControlWidth = false;  // Tắt điều khiển chiều rộng của con
+            VerticalLayoutGroup turnLayout = turnPanelGO.AddComponent<VerticalLayoutGroup>();
+            turnLayout.childAlignment = TextAnchor.UpperCenter;
+            turnLayout.spacing = 8f;
+            turnLayout.childControlHeight = false;
+            turnLayout.childControlWidth = false;
+            turnLayout.childForceExpandHeight = false;
+            turnLayout.childForceExpandWidth = false;
             turnQueuePanel = turnPanelGO.transform;
 
             // 3. Tạo Bảng Đội Hình Party Panel (Bottom Left)
@@ -414,6 +426,156 @@ namespace RPG.Combat
 
             endScreenPanel = endGO.transform;
             endScreenPanel.gameObject.SetActive(false);
+
+            // Tạo Enemy Target HUD Fallback Container
+            GameObject hudGO = new GameObject("EnemyTargetHUDPanel");
+            hudGO.transform.SetParent(overlayCanvas.transform, false);
+
+            RectTransform hudRect = hudGO.AddComponent<RectTransform>();
+            hudRect.anchorMin = new Vector2(1f, 1f);
+            hudRect.anchorMax = new Vector2(1f, 1f);
+            hudRect.pivot = new Vector2(1f, 1f);
+            hudRect.anchoredPosition = new Vector2(-20f, -20f);
+            hudRect.sizeDelta = new Vector2(550f, 100f);
+            hudRect.localScale = Vector3.one;
+
+            HorizontalLayoutGroup containerLayout = hudGO.AddComponent<HorizontalLayoutGroup>();
+            containerLayout.childAlignment = TextAnchor.UpperRight;
+            containerLayout.spacing = 8f;
+            containerLayout.childControlHeight = false;
+            containerLayout.childControlWidth = false;
+            containerLayout.childForceExpandHeight = false;
+            containerLayout.childForceExpandWidth = false;
+
+            enemyTargetHUDPanel = hudGO.transform;
+
+            // Tạo Template thẻ HUD của từng quái vật
+            GameObject templateGO = new GameObject("EnemyTargetCardTemplate");
+            templateGO.transform.SetParent(hudGO.transform, false);
+
+            RectTransform templateRect = templateGO.AddComponent<RectTransform>();
+            templateRect.sizeDelta = new Vector2(120f, 85f);
+            templateRect.localScale = Vector3.one;
+
+            Image cardBg = templateGO.AddComponent<Image>();
+            cardBg.color = new Color(0.05f, 0.05f, 0.07f, 0.9f);
+
+            Outline cardOutline = templateGO.AddComponent<Outline>();
+            cardOutline.effectColor = new Color(0.7f, 0.1f, 0.1f, 0.8f);
+            cardOutline.effectDistance = new Vector2(1f, -1f);
+
+            VerticalLayoutGroup cardLayout = templateGO.AddComponent<VerticalLayoutGroup>();
+            cardLayout.childAlignment = TextAnchor.UpperLeft;
+            cardLayout.padding = new RectOffset(6, 6, 5, 5);
+            cardLayout.spacing = 3f;
+            cardLayout.childControlHeight = false;
+            cardLayout.childControlWidth = false;
+            cardLayout.childForceExpandHeight = false;
+            cardLayout.childForceExpandWidth = false;
+
+            // NameText
+            GameObject nameGO = new GameObject("NameText");
+            nameGO.transform.SetParent(templateGO.transform, false);
+            RectTransform nameRect = nameGO.AddComponent<RectTransform>();
+            nameRect.sizeDelta = new Vector2(108f, 14f);
+            Text nameTxt = nameGO.AddComponent<Text>();
+            nameTxt.text = "Enemy Name";
+            nameTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            nameTxt.fontSize = 9;
+            nameTxt.fontStyle = FontStyle.Bold;
+            nameTxt.color = Color.white;
+
+            // HPBar_Bg
+            GameObject hpBgGO = new GameObject("HPBar_Bg");
+            hpBgGO.transform.SetParent(templateGO.transform, false);
+            RectTransform hpBgRect = hpBgGO.AddComponent<RectTransform>();
+            hpBgRect.sizeDelta = new Vector2(108f, 10f);
+            Image hpBgImg = hpBgGO.AddComponent<Image>();
+            hpBgImg.color = new Color(0.2f, 0.2f, 0.2f, 0.8f);
+
+            // HPBar_Fill
+            GameObject hpFillGO = new GameObject("HPBar_Fill");
+            hpFillGO.transform.SetParent(hpBgGO.transform, false);
+            RectTransform hpFillRect = hpFillGO.AddComponent<RectTransform>();
+            hpFillRect.anchorMin = Vector2.zero;
+            hpFillRect.anchorMax = Vector2.one;
+            hpFillRect.offsetMin = Vector2.zero;
+            hpFillRect.offsetMax = Vector2.zero;
+            Image hpFillImg = hpFillGO.AddComponent<Image>();
+            hpFillImg.color = new Color(0.9f, 0.1f, 0.1f);
+
+            // HPText
+            GameObject hpTextGO = new GameObject("HPText");
+            hpTextGO.transform.SetParent(hpBgGO.transform, false);
+            RectTransform hpTextRect = hpTextGO.AddComponent<RectTransform>();
+            hpTextRect.anchorMin = Vector2.zero;
+            hpTextRect.anchorMax = Vector2.one;
+            hpTextRect.offsetMin = Vector2.zero;
+            hpTextRect.offsetMax = Vector2.zero;
+            Text hpTxt = hpTextGO.AddComponent<Text>();
+            hpTxt.text = "HP: 100/100";
+            hpTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            hpTxt.fontSize = 7;
+            hpTxt.alignment = TextAnchor.MiddleCenter;
+            hpTxt.color = Color.white;
+
+            Outline hpOutline = hpTextGO.AddComponent<Outline>();
+            hpOutline.effectColor = Color.black;
+            hpOutline.effectDistance = new Vector2(1f, -1f);
+
+            // MPBar_Bg (Mana/Energy)
+            GameObject mpBgGO = new GameObject("MPBar_Bg");
+            mpBgGO.transform.SetParent(templateGO.transform, false);
+            RectTransform mpBgRect = mpBgGO.AddComponent<RectTransform>();
+            mpBgRect.sizeDelta = new Vector2(108f, 10f);
+            Image mpBgImg = mpBgGO.AddComponent<Image>();
+            mpBgImg.color = new Color(0.2f, 0.2f, 0.2f, 0.8f);
+
+            // MPBar_Fill
+            GameObject mpFillGO = new GameObject("MPBar_Fill");
+            mpFillGO.transform.SetParent(mpBgGO.transform, false);
+            RectTransform mpFillRect = mpFillGO.AddComponent<RectTransform>();
+            mpFillRect.anchorMin = Vector2.zero;
+            mpFillRect.anchorMax = Vector2.one;
+            mpFillRect.offsetMin = Vector2.zero;
+            mpFillRect.offsetMax = Vector2.zero;
+            Image mpFillImg = mpFillGO.AddComponent<Image>();
+            mpFillImg.color = new Color(0.1f, 0.5f, 0.9f);
+
+            // MPText
+            GameObject mpTextGO = new GameObject("MPText");
+            mpTextGO.transform.SetParent(mpBgGO.transform, false);
+            RectTransform mpTextRect = mpTextGO.AddComponent<RectTransform>();
+            mpTextRect.anchorMin = Vector2.zero;
+            mpTextRect.anchorMax = Vector2.one;
+            mpTextRect.offsetMin = Vector2.zero;
+            mpTextRect.offsetMax = Vector2.zero;
+            Text mpTxt = mpTextGO.AddComponent<Text>();
+            mpTxt.text = "MP: 50/100";
+            mpTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            mpTxt.fontSize = 7;
+            mpTxt.alignment = TextAnchor.MiddleCenter;
+            mpTxt.color = Color.white;
+
+            Outline mpOutline = mpTextGO.AddComponent<Outline>();
+            mpOutline.effectColor = Color.black;
+            mpOutline.effectDistance = new Vector2(1f, -1f);
+
+            // BuffContainer
+            GameObject buffsGO = new GameObject("BuffContainer");
+            buffsGO.transform.SetParent(templateGO.transform, false);
+            RectTransform buffsRect = buffsGO.AddComponent<RectTransform>();
+            buffsRect.sizeDelta = new Vector2(108f, 14f);
+
+            HorizontalLayoutGroup buffsLayout = buffsGO.AddComponent<HorizontalLayoutGroup>();
+            buffsLayout.childAlignment = TextAnchor.MiddleLeft;
+            buffsLayout.spacing = 2f;
+            buffsLayout.childControlHeight = false;
+            buffsLayout.childControlWidth = false;
+
+            enemyTargetCardTemplate = templateGO;
+            enemyTargetCardTemplate.SetActive(false);
+            enemyTargetHUDPanel.gameObject.SetActive(false);
 
             // 7. Tạo Bảng Tooltip (Buff/Debuff Tooltip) - Ẩn mặc định
             GameObject tooltipGO = new GameObject("BuffTooltipPanel");
@@ -1622,6 +1784,143 @@ namespace RPG.Combat
             if (tooltipPanel != null)
             {
                 tooltipPanel.gameObject.SetActive(false);
+            }
+        }
+
+        public void ShowEnemyTargetsHUD(List<CombatCharacter> targets)
+        {
+            if (enemyTargetHUDPanel == null || targets == null || targets.Count == 0) return;
+
+            // Dọn dẹp các HUD cũ
+            HideEnemyTargetHUD();
+
+            enemyTargetHUDPanel.gameObject.SetActive(true);
+
+            // Xác định template
+            GameObject template = enemyTargetCardTemplate;
+            if (template == null)
+            {
+                template = enemyTargetHUDPanel.Find("EnemyTargetCardTemplate")?.gameObject;
+            }
+            if (template == null) return;
+
+            foreach (var enemy in targets)
+            {
+                if (enemy == null) continue;
+
+                // Clone thẻ HUD từ template
+                GameObject cardGO = Instantiate(template, enemyTargetHUDPanel, false);
+                cardGO.name = "EnemyHUDCard_" + enemy.characterData.characterName;
+                cardGO.SetActive(true);
+                activeEnemyHUDs.Add(cardGO);
+
+                // Cập nhật Tên
+                Text nameText = cardGO.transform.Find("NameText")?.GetComponent<Text>();
+                if (nameText != null) nameText.text = enemy.characterData.characterName;
+
+                // Cập nhật Thanh máu HP
+                Image hpFill = cardGO.transform.Find("HPBar_Bg/HPBar_Fill")?.GetComponent<Image>();
+                if (hpFill != null)
+                {
+                    hpFill.fillAmount = enemy.maxHP > 0f ? enemy.currentHP / enemy.maxHP : 0f;
+                }
+                Text hpText = cardGO.transform.Find("HPBar_Bg/HPText")?.GetComponent<Text>();
+                if (hpText != null)
+                {
+                    hpText.text = $"HP: {enemy.currentHP:F0}/{enemy.maxHP:F0}";
+                }
+
+                // Cập nhật Thanh mana (Energy)
+                Image mpFill = cardGO.transform.Find("MPBar_Bg/MPBar_Fill")?.GetComponent<Image>();
+                if (mpFill != null)
+                {
+                    mpFill.fillAmount = enemy.currentEnergy / 100f;
+                }
+                Text mpText = cardGO.transform.Find("MPBar_Bg/MPText")?.GetComponent<Text>();
+                if (mpText != null)
+                {
+                    mpText.text = $"MP: {enemy.currentEnergy:F0}/100";
+                }
+
+                // Vẽ các buff
+                Transform buffContainer = cardGO.transform.Find("BuffContainer");
+                if (buffContainer != null)
+                {
+                    foreach (Transform child in buffContainer)
+                    {
+                        Destroy(child.gameObject);
+                    }
+                    foreach (var effect in enemy.activeEffects)
+                    {
+                        GameObject iconGO = new GameObject("EnemyBuffIcon");
+                        iconGO.transform.SetParent(buffContainer, false);
+
+                        RectTransform iconRect = iconGO.AddComponent<RectTransform>();
+                        iconRect.sizeDelta = new Vector2(12f, 12f);
+                        iconRect.localScale = Vector3.one;
+                        iconRect.localPosition = Vector3.zero;
+                        iconRect.localRotation = Quaternion.identity;
+
+                        Image iconImg = iconGO.AddComponent<Image>();
+                        iconImg.color = effect.data.effectColor;
+
+                        if (effect.data.icon != null)
+                        {
+                            iconImg.sprite = effect.data.icon;
+                        }
+                        else
+                        {
+                            iconImg.sprite = GetDefaultWhiteSprite();
+                        }
+                        iconImg.raycastTarget = true;
+
+                        // Text số lượt còn lại
+                        GameObject textGO = new GameObject("TurnText");
+                        textGO.transform.SetParent(iconGO.transform, false);
+                        RectTransform textRect = textGO.AddComponent<RectTransform>();
+                        textRect.anchorMin = Vector2.zero;
+                        textRect.anchorMax = Vector2.one;
+                        textRect.offsetMin = Vector2.zero;
+                        textRect.offsetMax = Vector2.zero;
+                        textRect.localPosition = Vector3.zero;
+                        textRect.localScale = Vector3.one;
+
+                        Text txt = textGO.AddComponent<Text>();
+                        txt.text = effect.turnsRemaining.ToString();
+                        txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                        txt.fontSize = 7;
+                        txt.alignment = TextAnchor.LowerRight;
+                        txt.color = Color.white;
+
+                        Outline outline = textGO.AddComponent<Outline>();
+                        outline.effectColor = Color.black;
+                        outline.effectDistance = new Vector2(1f, -1f);
+
+                        // Thêm Tooltip Trigger
+                        BuffTooltipTrigger trigger = iconGO.AddComponent<BuffTooltipTrigger>();
+                        trigger.Initialize(effect);
+                    }
+                }
+            }
+        }
+
+        public void HideEnemyTargetHUD()
+        {
+            if (activeEnemyHUDs != null)
+            {
+                foreach (var hud in activeEnemyHUDs)
+                {
+                    if (hud != null)
+                    {
+                        Destroy(hud);
+                    }
+                }
+                activeEnemyHUDs.Clear();
+            }
+
+            if (enemyTargetHUDPanel != null)
+            {
+                enemyTargetHUDPanel.gameObject.SetActive(false);
             }
         }
 
