@@ -6,7 +6,7 @@ namespace RPG.Combat
     /// <summary>
     /// Component gắn vào các icon buff để phát hiện sự kiện rê chuột và gửi yêu cầu hiển thị Tooltip lên UIManager.
     /// </summary>
-    public class BuffTooltipTrigger : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerMoveHandler
+    public class BuffTooltipTrigger : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerMoveHandler, IPointerClickHandler
     {
         private ActiveEffect activeEffect;
 
@@ -29,6 +29,11 @@ namespace RPG.Combat
         }
 
         public void OnPointerMove(PointerEventData eventData)
+        {
+            ShowTooltip(eventData.position);
+        }
+
+        public void OnPointerClick(PointerEventData eventData)
         {
             ShowTooltip(eventData.position);
         }

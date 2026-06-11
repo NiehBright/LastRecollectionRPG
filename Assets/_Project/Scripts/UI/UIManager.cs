@@ -503,6 +503,9 @@ namespace RPG.Combat
             hpFillRect.offsetMin = Vector2.zero;
             hpFillRect.offsetMax = Vector2.zero;
             Image hpFillImg = hpFillGO.AddComponent<Image>();
+            hpFillImg.type = Image.Type.Filled;
+            hpFillImg.fillMethod = Image.FillMethod.Horizontal;
+            hpFillImg.fillOrigin = 0;
             hpFillImg.color = new Color(0.9f, 0.1f, 0.1f);
 
             // HPText
@@ -541,6 +544,9 @@ namespace RPG.Combat
             mpFillRect.offsetMin = Vector2.zero;
             mpFillRect.offsetMax = Vector2.zero;
             Image mpFillImg = mpFillGO.AddComponent<Image>();
+            mpFillImg.type = Image.Type.Filled;
+            mpFillImg.fillMethod = Image.FillMethod.Horizontal;
+            mpFillImg.fillOrigin = 0;
             mpFillImg.color = new Color(0.1f, 0.5f, 0.9f);
 
             // MPText
@@ -1113,6 +1119,7 @@ namespace RPG.Combat
 
             selectedSkill = null;
             HideAllTargetSelectors();
+            HideEnemyTargetHUD();
 
             // Reset màu nền các nút về mặc định (Trắng)
             if (basicButton != null) basicButton.GetComponent<Image>().color = Color.white;
@@ -1470,6 +1477,48 @@ namespace RPG.Combat
                     }
                 }
             }
+            else
+            {
+                // Click to inspect enemy target HUD
+                if (UnityEngine.InputSystem.Mouse.current != null && UnityEngine.InputSystem.Mouse.current.leftButton.wasPressedThisFrame)
+                {
+                    // Avoid raycasting into 3D world if we clicked over UI
+                    if (UnityEngine.EventSystems.EventSystem.current != null && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject())
+                    {
+                        return;
+                    }
+
+                    // Avoid changing target HUD if combat is busy executing an action
+                    if (CombatManager.Instance != null && CombatManager.Instance.currentState == CombatState.BUSY)
+                    {
+                        return;
+                    }
+
+                    Vector2 mousePos = UnityEngine.InputSystem.Mouse.current.position.ReadValue();
+                    Ray ray = Camera.main.ScreenPointToRay(mousePos);
+                    RaycastHit[] hits = Physics.RaycastAll(ray);
+                    CombatCharacter clickedEnemy = null;
+
+                    foreach (var hit in hits)
+                    {
+                        CombatCharacter targetChar = hit.collider.GetComponentInParent<CombatCharacter>();
+                        if (targetChar != null && !targetChar.isAlly && !targetChar.isDead)
+                        {
+                            clickedEnemy = targetChar;
+                            break;
+                        }
+                    }
+
+                    if (clickedEnemy != null)
+                    {
+                        ShowEnemyTargetsHUD(new List<CombatCharacter> { clickedEnemy });
+                    }
+                    else
+                    {
+                        HideEnemyTargetHUD();
+                    }
+                }
+            }
         }
 
         private void HideAllTargetSelectors()
@@ -1798,6 +1847,14 @@ namespace RPG.Combat
             currentEnemyTargets = new List<CombatCharacter>(targets);
             enemyTargetHUDPanel.gameObject.SetActive(true);
 
+            // Đảm bảo panel nhận được sự kiện raycast
+            CanvasGroup panelGroup = enemyTargetHUDPanel.GetComponent<CanvasGroup>();
+            if (panelGroup != null)
+            {
+                panelGroup.blocksRaycasts = true;
+                panelGroup.interactable = true;
+            }
+
             // Xác định template
             GameObject template = enemyTargetCardTemplate;
             if (template == null)
@@ -1815,6 +1872,14 @@ namespace RPG.Combat
                 cardGO.name = "EnemyHUDCard_" + enemy.characterData.characterName;
                 cardGO.SetActive(true);
                 activeEnemyHUDs.Add(cardGO);
+
+                // Đảm bảo thẻ HUD nhận được sự kiện raycast
+                CanvasGroup cardGroup = cardGO.GetComponent<CanvasGroup>();
+                if (cardGroup != null)
+                {
+                    cardGroup.blocksRaycasts = true;
+                    cardGroup.interactable = true;
+                }
 
                 PopulateEnemyHUDCard(cardGO, enemy);
             }
@@ -1849,7 +1914,11 @@ namespace RPG.Combat
             Image hpFill = cardGO.transform.Find("HPBar_Bg/HPBar_Fill")?.GetComponent<Image>();
             if (hpFill != null)
             {
+                hpFill.type = Image.Type.Filled;
+                hpFill.fillMethod = Image.FillMethod.Horizontal;
+                hpFill.fillOrigin = 0;
                 hpFill.fillAmount = enemy.maxHP > 0f ? enemy.currentHP / enemy.maxHP : 0f;
+                hpFill.rectTransform.localScale = Vector3.one;
             }
             Text hpText = cardGO.transform.Find("HPBar_Bg/HPText")?.GetComponent<Text>();
             if (hpText != null)
@@ -1861,7 +1930,11 @@ namespace RPG.Combat
             Image mpFill = cardGO.transform.Find("MPBar_Bg/MPBar_Fill")?.GetComponent<Image>();
             if (mpFill != null)
             {
+                mpFill.type = Image.Type.Filled;
+                mpFill.fillMethod = Image.FillMethod.Horizontal;
+                mpFill.fillOrigin = 0;
                 mpFill.fillAmount = enemy.currentEnergy / 100f;
+                mpFill.rectTransform.localScale = Vector3.one;
             }
             Text mpText = cardGO.transform.Find("MPBar_Bg/MPText")?.GetComponent<Text>();
             if (mpText != null)

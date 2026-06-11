@@ -792,6 +792,7 @@ namespace RPG.Combat
                 case ElementType.Lightning: return "LÔI (Lightning)";
                 case ElementType.Nature: return "PHONG/MỘC (Nature)";
                 case ElementType.Physical: return "VẬT LÝ (Physical)";
+                case ElementType.Ether: return "ETHER (Ether)";
                 default: return "VÔ HỆ";
             }
         }

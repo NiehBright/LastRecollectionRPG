@@ -852,6 +852,7 @@ namespace RPG.Combat
                 case ElementType.Lightning: return new Color(1.0f, 0.9f, 0.2f); // Vàng sét
                 case ElementType.Nature: return new Color(0.2f, 0.8f, 0.3f); // Xanh lá
                 case ElementType.Physical: return new Color(0.8f, 0.8f, 0.8f); // Xám vật lý
+                case ElementType.Ether: return new Color(0.65f, 0.25f, 0.95f); // Tím Ether
                 default: return Color.white;
             }
         }
