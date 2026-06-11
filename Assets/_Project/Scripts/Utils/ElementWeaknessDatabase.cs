@@ -22,6 +22,17 @@ namespace RPG.Combat
         /// </summary>
         public float GetMultiplier(ElementType attacker, ElementType defender)
         {
+            // Ether khắc tất cả nguyên tố
+            if (attacker == ElementType.Ether)
+            {
+                return 1.5f;
+            }
+            // Không nguyên tố nào khắc được Ether
+            if (defender == ElementType.Ether)
+            {
+                return 1.0f;
+            }
+
             // Kiểm tra cấu hình trong asset trước
             if (relations != null && relations.Length > 0)
             {

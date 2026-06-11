@@ -892,6 +892,7 @@ namespace RPG.Combat
                 case ElementType.Lightning: return new Color(1.0f, 0.9f, 0.2f);
                 case ElementType.Nature: return new Color(0.2f, 0.8f, 0.3f);
                 case ElementType.Physical: return new Color(0.8f, 0.8f, 0.8f);
+                case ElementType.Ether: return new Color(0.65f, 0.25f, 0.95f);
                 default: return Color.white;
             }
         }

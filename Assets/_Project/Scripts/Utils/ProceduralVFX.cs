@@ -185,6 +185,29 @@ namespace RPG.Combat
                     break;
 
                 case ElementType.Physical:
+                    main.startLifetime = 0.5f;
+                    main.startSpeed = 10f;
+                    main.startSize = 0.2f;
+                    emission.SetBursts(new ParticleSystem.Burst[] { new ParticleSystem.Burst(0f, 50) });
+                    
+                    grad.SetKeys(
+                        new GradientColorKey[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.gray, 0.5f), new GradientColorKey(Color.darkGray, 1.0f) },
+                        new GradientAlphaKey[] { new GradientAlphaKey(1.0f, 0f), new GradientAlphaKey(1.0f, 0.6f), new GradientAlphaKey(0f, 1.0f) }
+                    );
+                    break;
+
+                case ElementType.Ether:
+                    main.startLifetime = 0.8f;
+                    main.startSpeed = 6f;
+                    main.startSize = 0.35f;
+                    emission.SetBursts(new ParticleSystem.Burst[] { new ParticleSystem.Burst(0f, 70) });
+                    
+                    grad.SetKeys(
+                        new GradientColorKey[] { new GradientColorKey(new Color(0.7f, 0.3f, 1.0f), 0f), new GradientColorKey(new Color(0.9f, 0.4f, 1.0f), 0.5f), new GradientColorKey(Color.black, 1.0f) },
+                        new GradientAlphaKey[] { new GradientAlphaKey(1.0f, 0f), new GradientAlphaKey(1.0f, 0.7f), new GradientAlphaKey(0f, 1.0f) }
+                    );
+                    break;
+
                 default:
                     main.startLifetime = 0.5f;
                     main.startSpeed = 10f;

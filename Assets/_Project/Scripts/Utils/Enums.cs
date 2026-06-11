@@ -6,7 +6,8 @@ namespace RPG.Combat
         Ice,
         Lightning,
         Nature,
-        Physical
+        Physical,
+        Ether
     }
 
     public enum SkillType
