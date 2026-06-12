@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 19d87fbd90606144db3ed1993019b287, type: 3}
+  m_Name: Nieh_SkillSpecial
+  m_EditorClassIdentifier: Assembly-CSharp::RPG.Combat.SkillData
+  skillId: nieh_character_special
+  skillName: "K\u1EF9 N\u0103ng \u0110\u1EB7c Bi\u1EC7t"
+  description: "B\u1ED9c ph\xE1t k\u1EF9 n\u0103ng g\xE2y s\xE1t th\u01B0\u01A1ng
+    l\u1EDBn v\xE0 t\u1EA1o hi\u1EC7u \u1EE9ng \u0111\u1EB7c bi\u1EC7t l\xEAn m\u1EE5c
+    ti\xEAu."
+  skillType: 1
+  cooldown: 2
+  damageMultiplier: 1.5
+  targetType: 1
+  energyCost: 0
+  energyGenerated: 15
+  effects: []
+  skillColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  rangeType: 1
+  rangedVfxType: 1
+  projectileVFX: {fileID: 0}
+  animDuration: 1
+  skillClip: {fileID: 1827226128182048838, guid: 2204ab0738b23534da437da619c2c8a9, type: 3}
+  skillImpactVFX: {fileID: 5212459431948984307, guid: 605e6e0bf210f704e9a187b54444fcbb, type: 3}

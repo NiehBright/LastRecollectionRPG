@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b21f55d93c663fd4cada74085816f256, type: 3}
+  m_Name: Nieh_Data
+  m_EditorClassIdentifier: Assembly-CSharp::RPG.Combat.CharacterData
+  characterId: nieh_character
+  characterName: Nieh
+  element: 5
+  role: 0
+  avatar: {fileID: 0}
+  themeColor: {r: 1, g: 0, b: 0, a: 1}
+  isRecollectionUnlocked: 1
+  baseMaxHP: 800
+  baseATK: 120
+  baseDEF: 60
+  baseSpeed: 110
+  baseCritRate: 0.2
+  baseCritDMG: 2
+  skillBasic: {fileID: 11400000, guid: 60d317dbd1ea7244886707688c59976b, type: 2}
+  skillSpecial: {fileID: 11400000, guid: 0ba78955b47a9994fadecc819707e984, type: 2}
+  skillUltimate: {fileID: 11400000, guid: 60f55311b53ca0847a6776544b06590c, type: 2}
+  turnVFXPrefab: {fileID: 0}
+  idleClip: {fileID: 7400000, guid: b1e78c077cc2bc5418c15d74c26f211a, type: 2}
+  runClip: {fileID: 7400000, guid: cf668fee82e1dd1468b72ccb8725dfc0, type: 2}
+  defendClip: {fileID: 1827226128182048838, guid: 0e8e5be1cc3398c44b084e3a6c38615d, type: 3}
+  hitClip: {fileID: 1827226128182048838, guid: d878ef86ea9b96943b16113cbe8af3c7, type: 3}
+  dieClip: {fileID: 1827226128182048838, guid: d9d8a7073fa881749b661e4923851b06, type: 3}
