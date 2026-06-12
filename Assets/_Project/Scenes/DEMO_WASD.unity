@@ -1642,7 +1642,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1259015192425890, guid: 98a0661a1a68d9949b6b7d564da9f41f, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 1259015192425890, guid: 98a0661a1a68d9949b6b7d564da9f41f, type: 3}
       propertyPath: m_TagString
@@ -13154,7 +13154,7 @@ Transform:
   m_GameObject: {fileID: 3363373576618218815}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 3.4021316, y: 4.9990854, z: -10.994275}
+  m_LocalPosition: {x: 3.4021316, y: 5.271, z: -10.994275}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -13567,7 +13567,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!1 &3374154141629735895
 GameObject:
   m_ObjectHideFlags: 0
@@ -17173,8 +17173,8 @@ MonoBehaviour:
   damagePopupPrefab: {fileID: 6910523135397548645, guid: 14de2299df584b9469486474f4b914e4, type: 3}
   hitEffectPrefab: {fileID: 6152668829965801191, guid: 68cfc227f6f633b4490ca7771f071986, type: 3}
   attackAction: {fileID: 0}
-  attackRange: 1.6
-  attackRadius: 0.8
+  attackRange: 0.7
+  attackRadius: 0.52
   enemyLayer:
     serializedVersion: 2
     m_Bits: 4294967295

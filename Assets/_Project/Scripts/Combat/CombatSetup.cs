@@ -353,6 +353,9 @@ namespace RPG.Combat
             var combatCtrls = go.GetComponentsInChildren<BLINK.Controller.CombatController>(true);
             foreach (var c in combatCtrls) DestroyImmediate(c);
 
+            var muryos = go.GetComponentsInChildren<Muryotaisu.MuryotaisuController>(true);
+            foreach (var m in muryos) DestroyImmediate(m);
+
             var ccs = go.GetComponentsInChildren<CharacterController>(true);
             foreach (var c in ccs) DestroyImmediate(c);
 

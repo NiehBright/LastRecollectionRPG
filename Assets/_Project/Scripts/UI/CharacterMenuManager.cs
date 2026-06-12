@@ -935,6 +935,7 @@ namespace RPG.Combat
                 foreach (var wasd in spawnedShowroomModel.GetComponentsInChildren<TopDownWASDController>()) { wasd.enabled = false; DestroyImmediate(wasd); }
                 foreach (var combat in spawnedShowroomModel.GetComponentsInChildren<CombatController>()) { combat.enabled = false; DestroyImmediate(combat); }
                 foreach (var cc in spawnedShowroomModel.GetComponentsInChildren<CombatCharacter>()) { cc.enabled = false; DestroyImmediate(cc); }
+                foreach (var muryo in spawnedShowroomModel.GetComponentsInChildren<Muryotaisu.MuryotaisuController>()) { muryo.enabled = false; DestroyImmediate(muryo); }
                 foreach (var characterController in spawnedShowroomModel.GetComponentsInChildren<CharacterController>()) { characterController.enabled = false; DestroyImmediate(characterController); }
                 foreach (var rb in spawnedShowroomModel.GetComponentsInChildren<Rigidbody>())
                 {

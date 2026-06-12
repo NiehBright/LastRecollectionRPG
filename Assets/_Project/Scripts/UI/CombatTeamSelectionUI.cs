@@ -357,6 +357,7 @@ namespace RPG.Combat
                         foreach (var wasd in spawnedGO.GetComponentsInChildren<TopDownWASDController>()) { wasd.enabled = false; DestroyImmediate(wasd); }
                         foreach (var combat in spawnedGO.GetComponentsInChildren<CombatController>()) { combat.enabled = false; DestroyImmediate(combat); }
                         foreach (var cc in spawnedGO.GetComponentsInChildren<CombatCharacter>()) { cc.enabled = false; DestroyImmediate(cc); }
+                        foreach (var muryo in spawnedGO.GetComponentsInChildren<Muryotaisu.MuryotaisuController>()) { muryo.enabled = false; DestroyImmediate(muryo); }
                         foreach (var characterController in spawnedGO.GetComponentsInChildren<CharacterController>()) { characterController.enabled = false; DestroyImmediate(characterController); }
                         foreach (var rb in spawnedGO.GetComponentsInChildren<Rigidbody>())
                         {

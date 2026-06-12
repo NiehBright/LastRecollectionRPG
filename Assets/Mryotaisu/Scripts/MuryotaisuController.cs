@@ -1,6 +1,8 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+
+using UnityEngine.InputSystem;
 
 namespace Muryotaisu
 {
@@ -35,9 +37,11 @@ namespace Muryotaisu
         // Update is called once per frame
         void Update()
         {
+            var keyboard = Keyboard.current;
+            if (keyboard == null) return;
 
             // Smile
-            if (Input.GetKey("q"))
+            if (keyboard.qKey.isPressed)
             {
                 animator.SetBool("smileFlag", true);
             } else {
@@ -60,17 +64,23 @@ namespace Muryotaisu
                 animator.SetBool("kocchiFlag", false);
             }
 
-            if (controller.isGrounded)
+            if (controller != null && controller.isGrounded)
             {
                 // Switching idle motions
                 second += Time.deltaTime;
 
-                if (Input.GetKeyDown("space"))
+                bool spacePressed = keyboard.spaceKey.wasPressedThisFrame;
+                bool upPressed = keyboard.upArrowKey.isPressed || keyboard.wKey.isPressed;
+                bool rightPressed = keyboard.rightArrowKey.isPressed || keyboard.dKey.isPressed;
+                bool downPressed = keyboard.downArrowKey.isPressed || keyboard.sKey.isPressed;
+                bool leftPressed = keyboard.leftArrowKey.isPressed || keyboard.aKey.isPressed;
+
+                if (spacePressed)
                 {
                     animator.SetBool("jumpFlag", true);
                     animator.SetBool("walkFlag", false);
                     animator.SetBool("idleFlag", false);
-                } else if ((Input.GetKey("up")) || (Input.GetKey("right")) || (Input.GetKey("down")) || (Input.GetKey("left"))|| Input.GetKey("w") || Input.GetKey("d") || Input.GetKey("s") || Input.GetKey("a"))
+                } else if (upPressed || rightPressed || downPressed || leftPressed)
                 {
                     animator.SetBool("jumpFlag", false);
                     animator.SetBool("walkFlag", true);
@@ -88,7 +98,7 @@ namespace Muryotaisu
                     animator.SetBool("idleFlag", true);
                 }
 
-                if (Input.GetKey("up") || Input.GetKey("w"))
+                if (upPressed)
                 {
                     float angleDiff = Mathf.DeltaAngle(transform.localEulerAngles.y, 180);
                     if (angleDiff == 0)
@@ -105,7 +115,7 @@ namespace Muryotaisu
                     }
                 }
 
-                if (Input.GetKey("right") || Input.GetKey("d"))
+                if (rightPressed)
                 {
                     float angleDiff = Mathf.DeltaAngle(transform.localEulerAngles.y, -90);
                     if (angleDiff == 0)
@@ -123,7 +133,7 @@ namespace Muryotaisu
                     }
                 }
 
-                if (Input.GetKey("down") || Input.GetKey("s")) 
+                if (downPressed) 
                 {
                     float angleDiff = Mathf.DeltaAngle(transform.localEulerAngles.y, 0);
                     if (angleDiff == 0) 
@@ -141,7 +151,7 @@ namespace Muryotaisu
                     }
                 }
 
-                if (Input.GetKey("left") || Input.GetKey("a")) 
+                if (leftPressed) 
                 {
                     float angleDiff = Mathf.DeltaAngle(transform.localEulerAngles.y, 90);
                     //Debug.Log($"left: {angleDiff}");
@@ -160,15 +170,18 @@ namespace Muryotaisu
                     }
                 }
     
-                if (Input.GetKeyDown("space"))
+                if (spacePressed)
                 {
                     moveDirection.y = jumpSpeed;
                 }
 
             }
 
-            moveDirection.y -= gravity * Time.deltaTime;
-            controller.Move(moveDirection * Time.deltaTime);
+            if (controller != null)
+            {
+                moveDirection.y -= gravity * Time.deltaTime;
+                controller.Move(moveDirection * Time.deltaTime);
+            }
 
         }
     }
