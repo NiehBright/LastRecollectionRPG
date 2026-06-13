@@ -30,10 +30,35 @@ namespace RPG.Combat
         [Header("Chỉ số Runtime")]
         public float currentHP;
         public float maxHP;
-        public float currentEnergy; // Phạm vi 0 - 100
+        
+        private float _individualEnergy = 0f;
+        public float currentEnergy
+        {
+            get
+            {
+                if (isAlly && CombatManager.Instance != null)
+                {
+                    return CombatManager.Instance.sharedEnergy;
+                }
+                return _individualEnergy;
+            }
+            set
+            {
+                if (isAlly && CombatManager.Instance != null)
+                {
+                    CombatManager.Instance.sharedEnergy = Mathf.Clamp(value, 0f, 100f);
+                }
+                else
+                {
+                    _individualEnergy = Mathf.Clamp(value, 0f, 100f);
+                }
+            }
+        }
+        
         public int specialSkillCDRemaining = 0;
         public bool isDead = false;
         public bool isGuarding = false;
+        public bool isWaitingForQTE = false;
 
         [Header("Chỉ số Recollection")]
         public float recollectionGauge = 0f;
@@ -90,8 +115,11 @@ namespace RPG.Combat
             maxHP = data.baseMaxHP;
             currentHP = maxHP;
 
-            // Khởi tạo năng lượng ngẫu nhiên từ 30% đến 50%
-            currentEnergy = UnityEngine.Random.Range(30f, 50f);
+            // Khởi tạo năng lượng ngẫu nhiên từ 30% đến 50% cho kẻ địch
+            if (!isAlly)
+            {
+                currentEnergy = UnityEngine.Random.Range(30f, 50f);
+            }
             recollectionGauge = UnityEngine.Random.Range(20f, 40f); // Tích sẵn 1 phần để người dùng dễ test
             isDead = false;
             isGuarding = false;
@@ -643,21 +671,29 @@ namespace RPG.Combat
         {
             if (isDead) return;
 
-            currentEnergy += amount;
-            if (currentEnergy > 100f)
+            if (isAlly && CombatManager.Instance != null)
             {
-                currentEnergy = 100f;
+                CombatManager.Instance.AddSharedEnergy(amount);
             }
-            
-            UpdateFloatingHUD();
+            else
+            {
+                _individualEnergy = Mathf.Clamp(_individualEnergy + amount, 0f, 100f);
+                UpdateFloatingHUD();
+            }
             OnEnergyChanged?.Invoke(this, amount);
         }
 
         public void ConsumeEnergy(float amount)
         {
-            currentEnergy -= amount;
-            if (currentEnergy < 0f) currentEnergy = 0f;
-            UpdateFloatingHUD();
+            if (isAlly && CombatManager.Instance != null)
+            {
+                CombatManager.Instance.ConsumeSharedEnergy(amount);
+            }
+            else
+            {
+                _individualEnergy = Mathf.Clamp(_individualEnergy - amount, 0f, 100f);
+                UpdateFloatingHUD();
+            }
             OnEnergyChanged?.Invoke(this, -amount);
         }
 
@@ -818,9 +854,9 @@ namespace RPG.Combat
                     }
                 }
 
-                // 1. Dash tới mục tiêu (0.2s)
+                // 1. Dash tới mục tiêu (0.35s)
                 float elapsed = 0f;
-                float duration = 0.2f;
+                float duration = 0.35f;
                 Vector3 strikePos = targetPosition + (startPos - targetPosition).normalized * 1.2f; // Dừng lại trước mục tiêu 1.2m
 
                 while (elapsed < duration)
@@ -900,6 +936,12 @@ namespace RPG.Combat
                 OnAnimationHitEventReceived();
             }
 
+            // Chờ Parry QTE giải quyết xong (nếu có) trước khi lùi về
+            while (isWaitingForQTE)
+            {
+                yield return null;
+            }
+
             // Đợi cho đến khi hoạt ảnh chạy hết hoàn toàn trước khi lùi về
             if (elapsedWait < animLength)
             {
@@ -918,7 +960,7 @@ namespace RPG.Combat
                 }
 
                 float elapsed = 0f;
-                float duration = 0.3f;
+                float duration = 0.25f;
                 Vector3 strikePos = transform.position;
                 while (elapsed < duration)
                 {

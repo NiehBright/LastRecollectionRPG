@@ -90,6 +90,7 @@ namespace BLINK.Controller
         private float _rotationAngle = 180.0f;
         private float _targetRotationAngle = 180.0f;
         private Vector2? _targetPosition;
+        private bool _wasAttacking;
 
         private void Awake()
         {
@@ -108,6 +109,18 @@ namespace BLINK.Controller
         {
             // Block WASD movement when attacking (lunge is handled by CombatController)
             bool isAttacking = _combatController != null && _combatController.IsAttacking;
+            
+            if (!isAttacking && _wasAttacking)
+            {
+                // Sync rotation values immediately when transition back to locomotion to prevent snap/jitter
+                float currentY = transform.eulerAngles.y;
+                _forwardF = currentY;
+                _rotationAngle = currentY;
+                _targetRotationAngle = currentY;
+                _angularVelocity = 0f;
+            }
+            _wasAttacking = isAttacking;
+
             if (movementEnabled && !isAttacking) HandleMovement();
             else if (movementEnabled && isAttacking) HandleRotationOnly();
             else ApplyGravityOnly();

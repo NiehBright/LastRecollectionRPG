@@ -6,6 +6,14 @@ namespace RPG.Combat
 {
     public static class CombatUIFixer
     {
+        [MenuItem("Tools/RPG/Rebuild and Integrate Combat UI")]
+        public static void RebuildAndFixCombatUI()
+        {
+            CombatSetupWindow.BuildCombatUIPrefab();
+            FixCombatUIPrefab();
+            Debug.Log("[CombatUIFixer] Đã sinh lại và tích hợp đầy đủ Combat UI!");
+        }
+
         [MenuItem("Tools/RPG/Integrate Recollection Banner to Prefab")]
         public static void FixCombatUIPrefab()
         {
@@ -329,6 +337,71 @@ namespace RPG.Combat
             
             isModified = true;
             Debug.Log("[CombatUIFixer] Đã tích hợp thành công Enemy Target HUD đa mục tiêu mới.");
+
+            // 3. TÍCH HỢP PARRY QTE PANEL
+            Transform oldQte = prefabRoot.transform.Find("QTE_Panel");
+            if (oldQte != null)
+            {
+                Object.DestroyImmediate(oldQte.gameObject, true);
+                refs.qtePanel = null;
+                refs.qteTargetCircle = null;
+                refs.qteOuterRing = null;
+            }
+
+            Debug.Log("[CombatUIFixer] Bắt đầu tích hợp Parry QTE UI vào Prefab...");
+
+            GameObject qteGO = new GameObject("QTE_Panel");
+            qteGO.transform.SetParent(prefabRoot.transform, false);
+            
+            RectTransform qteRect = qteGO.AddComponent<RectTransform>();
+            qteRect.anchorMin = new Vector2(1f, 0f);
+            qteRect.anchorMax = new Vector2(1f, 0f);
+            qteRect.pivot = new Vector2(0.5f, 0.5f);
+            qteRect.anchoredPosition = new Vector2(-150f, 180f);
+            qteRect.sizeDelta = new Vector2(200f, 200f);
+
+            GameObject targetCircleGO = new GameObject("TargetCircle");
+            targetCircleGO.transform.SetParent(qteGO.transform, false);
+            RectTransform targetCircleRect = targetCircleGO.AddComponent<RectTransform>();
+            targetCircleRect.sizeDelta = new Vector2(100f, 100f);
+            Image targetCircleImg = targetCircleGO.AddComponent<Image>();
+
+            GameObject outerRingGO = new GameObject("OuterRing");
+            outerRingGO.transform.SetParent(qteGO.transform, false);
+            RectTransform outerRingRect = outerRingGO.AddComponent<RectTransform>();
+            outerRingRect.sizeDelta = new Vector2(100f, 100f);
+            Image outerRingImg = outerRingGO.AddComponent<Image>();
+
+            GameObject glowGO = new GameObject("Glow");
+            glowGO.transform.SetParent(qteGO.transform, false);
+            glowGO.transform.SetAsFirstSibling();
+            RectTransform glowRect = glowGO.AddComponent<RectTransform>();
+            glowRect.sizeDelta = new Vector2(90f, 90f);
+            Image glowImg = glowGO.AddComponent<Image>();
+            glowImg.color = new Color(0.2f, 0.8f, 0.2f, 0.4f);
+
+            GameObject labelGO = new GameObject("LabelText");
+            labelGO.transform.SetParent(qteGO.transform, false);
+            RectTransform labelRect = labelGO.AddComponent<RectTransform>();
+            labelRect.anchoredPosition = new Vector2(0f, 75f);
+            labelRect.sizeDelta = new Vector2(200f, 30f);
+            Text labelTxt = labelGO.AddComponent<Text>();
+            labelTxt.text = "PRESS SPACE / CLICK TO PARRY!";
+            labelTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            labelTxt.fontSize = 10;
+            labelTxt.alignment = TextAnchor.MiddleCenter;
+            labelTxt.color = Color.white;
+            
+            Outline labelOutline = labelGO.AddComponent<Outline>();
+            labelOutline.effectColor = Color.black;
+
+            refs.qtePanel = qteGO.transform;
+            refs.qteTargetCircle = targetCircleImg;
+            refs.qteOuterRing = outerRingImg;
+            qteGO.SetActive(false); // Ẩn mặc định trong prefab
+
+            isModified = true;
+            Debug.Log("[CombatUIFixer] Đã tích hợp thành công Parry QTE UI vào Prefab.");
 
             if (isModified)
             {

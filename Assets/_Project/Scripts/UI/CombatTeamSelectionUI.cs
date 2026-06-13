@@ -15,6 +15,7 @@ namespace RPG.Combat
         private OverworldMonster currentMonster;
         private CharacterData[] slots = new CharacterData[4]; // 4 Slot đội hình
         private int activeSelectingSlot = -1;
+        private Button[] slotRemoveButtons = new Button[4];
 
         // UI GameObjects
         public GameObject canvasGO;
@@ -145,6 +146,9 @@ namespace RPG.Combat
             // 1. Tạo môi trường 3D Showroom
             Setup3DShowroom();
 
+            // Khởi tạo các nút gỡ nhanh
+            InitializeQuickRemoveButtons();
+
             // 3. Render các mô hình nhân vật
             UpdateShowroomModels();
         }
@@ -190,6 +194,70 @@ namespace RPG.Combat
                 GameObject es = new GameObject("EventSystem");
                 es.AddComponent<EventSystem>();
                 es.AddComponent<StandaloneInputModule>();
+            }
+        }
+
+        private void RemoveCharacterFromSlot(int slotIndex)
+        {
+            if (slotIndex >= 0 && slotIndex < 4)
+            {
+                slots[slotIndex] = null;
+                UpdateShowroomModels();
+            }
+        }
+
+        private void InitializeQuickRemoveButtons()
+        {
+            for (int i = 0; i < 4; i++)
+            {
+                int index = i;
+                Text nameText = slotNameTexts[i];
+                if (nameText != null)
+                {
+                    Transform parentPanel = nameText.transform.parent;
+                    Transform existingBtn = parentPanel.Find("QuickRemoveButton");
+                    GameObject removeBtnGO;
+                    if (existingBtn == null)
+                    {
+                        removeBtnGO = new GameObject("QuickRemoveButton");
+                        removeBtnGO.transform.SetParent(parentPanel, false);
+                        RectTransform rRect = removeBtnGO.AddComponent<RectTransform>();
+                        rRect.anchorMin = new Vector2(1f, 1f);
+                        rRect.anchorMax = new Vector2(1f, 1f);
+                        rRect.pivot = new Vector2(1f, 1f);
+                        rRect.anchoredPosition = new Vector2(0f, 0f);
+                        rRect.sizeDelta = new Vector2(25f, 25f);
+                        
+                        Image img = removeBtnGO.AddComponent<Image>();
+                        img.color = new Color(0.78f, 0.23f, 0.23f, 0.9f);
+                        
+                        Button btn = removeBtnGO.AddComponent<Button>();
+                        btn.onClick.AddListener(() => RemoveCharacterFromSlot(index));
+                        
+                        GameObject txtGO = new GameObject("Text");
+                        txtGO.transform.SetParent(removeBtnGO.transform, false);
+                        RectTransform tRect = txtGO.AddComponent<RectTransform>();
+                        tRect.anchorMin = Vector2.zero;
+                        tRect.anchorMax = Vector2.one;
+                        tRect.offsetMin = Vector2.zero;
+                        tRect.offsetMax = Vector2.zero;
+                        
+                        Text txt = txtGO.AddComponent<Text>();
+                        txt.text = "X";
+                        txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                        txt.fontSize = 14;
+                        txt.alignment = TextAnchor.MiddleCenter;
+                        txt.color = Color.white;
+                        
+                        slotRemoveButtons[index] = btn;
+                    }
+                    else
+                    {
+                        slotRemoveButtons[index] = existingBtn.GetComponent<Button>();
+                        slotRemoveButtons[index].onClick.RemoveAllListeners();
+                        slotRemoveButtons[index].onClick.AddListener(() => RemoveCharacterFromSlot(index));
+                    }
+                }
             }
         }
 
@@ -306,7 +374,7 @@ namespace RPG.Combat
             ClearShowroomModels();
 
             // Tọa độ X cho 4 Slot đứng cạnh nhau
-            float[] slotXOffsets = new float[] { -2.2f, -0.7f, 0.7f, 2.2f };
+            float[] slotXOffsets = new float[] { -2.1f, -0.7f, 0.7f, 2.1f };
 
             for (int i = 0; i < 4; i++)
             {
@@ -424,6 +492,11 @@ namespace RPG.Combat
                         slotElementTexts[i].text = data.element.ToString().ToUpper();
                         slotElementTexts[i].color = GetElementColor(data.element);
                     }
+
+                    if (slotRemoveButtons != null && i < slotRemoveButtons.Length && slotRemoveButtons[i] != null)
+                    {
+                        slotRemoveButtons[i].gameObject.SetActive(true);
+                    }
                 }
                 else
                 {
@@ -433,6 +506,11 @@ namespace RPG.Combat
                     {
                         slotElementTexts[i].text = "Click để chọn";
                         slotElementTexts[i].color = Color.gray;
+                    }
+
+                    if (slotRemoveButtons != null && i < slotRemoveButtons.Length && slotRemoveButtons[i] != null)
+                    {
+                        slotRemoveButtons[i].gameObject.SetActive(false);
                     }
                 }
             }
@@ -446,6 +524,13 @@ namespace RPG.Combat
             selectionCanvas = canvasGO.AddComponent<Canvas>();
             selectionCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
             selectionCanvas.sortingOrder = 999;
+            
+            CanvasScaler scaler = canvasGO.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+            scaler.matchWidthOrHeight = 0.5f;
+
             canvasGO.AddComponent<GraphicRaycaster>();
 
             // Panel nền mờ phong cách HSR
@@ -488,7 +573,7 @@ namespace RPG.Combat
             titleOutline.effectColor = Color.black;
 
             // Thiết lập 4 Slot trên Canvas
-            float[] uiSlotXPositions = new float[] { -300f, -100f, 100f, 300f };
+            float[] uiSlotXPositions = new float[] { -450f, -150f, 150f, 450f };
 
             for (int i = 0; i < 4; i++)
             {
