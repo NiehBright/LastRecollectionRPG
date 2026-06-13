@@ -254,15 +254,48 @@ namespace BLINK.Controller
             {
                 var stateInfo = animator.GetCurrentAnimatorStateInfo(layerToCheck);
 
-                // Check if we've left the attack state (transition to Idle completed)
+                // Check if we've left the attack state
                 if (!stateInfo.shortNameHash.Equals(targetStateHash))
                 {
                     // If we are in transition into a DIFFERENT attack state, that's the combo continuing
                     var nextInfo = animator.GetNextAnimatorStateInfo(layerToCheck);
                     if (animator.IsInTransition(layerToCheck) && nextInfo.shortNameHash != 0)
-                        break; // combo transition is happening
-                    if (stateInfo.normalizedTime >= 0.95f)
-                        break; // attack ended
+                    {
+                        bool nextIsAttack = false;
+                        for (int i = 0; i < 4; i++)
+                        {
+                            if (nextInfo.shortNameHash == AttackTriggerHashes[i])
+                            {
+                                nextIsAttack = true;
+                                break;
+                            }
+                        }
+                        if (nextIsAttack)
+                            break; // combo transition is happening
+                    }
+                    break; // left the attack state completely
+                }
+
+                // Check if we are transitioning out of the attack state to a non-attack state
+                if (animator.IsInTransition(layerToCheck))
+                {
+                    var nextInfo = animator.GetNextAnimatorStateInfo(layerToCheck);
+                    if (nextInfo.shortNameHash != 0)
+                    {
+                        bool nextIsAttack = false;
+                        for (int i = 0; i < 4; i++)
+                        {
+                            if (nextInfo.shortNameHash == AttackTriggerHashes[i])
+                            {
+                                nextIsAttack = true;
+                                break;
+                            }
+                        }
+                        if (!nextIsAttack)
+                        {
+                            break; // transitioning to Idle, Locomotion, etc. Break early!
+                        }
+                    }
                 }
 
                 float normTime = stateInfo.normalizedTime % 1f;

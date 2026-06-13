@@ -102,7 +102,7 @@ namespace RPG.Combat
             Debug.Log("[CombatSetupWindow] Thiết lập Scene hoàn tất.");
         }
 
-        private static void BuildCombatUIPrefab()
+        public static void BuildCombatUIPrefab()
         {
             // 1. Tạo Canvas chính
             GameObject canvasGO = new GameObject("CombatUI_Canvas");

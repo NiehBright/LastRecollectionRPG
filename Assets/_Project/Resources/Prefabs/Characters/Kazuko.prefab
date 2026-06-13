@@ -49,10 +49,10 @@ MonoBehaviour:
   isAlly: 1
   currentHP: 0
   maxHP: 0
-  currentEnergy: 0
   specialSkillCDRemaining: 0
   isDead: 0
   isGuarding: 0
+  isWaitingForQTE: 0
   recollectionGauge: 0
   isCommander: 0
   activeEffects: []

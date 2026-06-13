@@ -33,5 +33,10 @@ namespace RPG.Combat
 
         [Header("End Screen Buttons")]
         public Button restartButton;
+
+        [Header("Parry QTE UI")]
+        public Transform qtePanel;
+        public Image qteTargetCircle;
+        public Image qteOuterRing;
     }
 }

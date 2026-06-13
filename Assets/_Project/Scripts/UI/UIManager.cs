@@ -45,6 +45,23 @@ namespace RPG.Combat
         // Lưu trữ các nút Ultimate của Party để nhấp nháy khi đầy 100%
         private Dictionary<CombatCharacter, Button> partyUltButtons = new Dictionary<CombatCharacter, Button>();
 
+        // Shared Ultimate UI fields
+        private Transform sharedUltimateBarPanel;
+        private Image sharedUltimateBarFill;
+        private Text sharedUltimateText;
+        private Button sharedUltimateButton;
+        private Transform ultimateSelectorPanel;
+
+        // Parry QTE variables
+        private Transform qtePanel;
+        private Image qteTargetCircle;
+        private Image qteOuterRing;
+        private Action<bool> qteCallback;
+        private bool isQteActive = false;
+        private float qteTimer = 0f;
+        private const float qteDuration = 1.0f;
+        private float originalTimeScale = 1f;
+
         // Lưu trữ nút Restart của Màn hình kết thúc để đổi tên động
         private Button restartButton;
         private Text restartButtonText;
@@ -191,6 +208,9 @@ namespace RPG.Combat
                     recollectionBannerPanel = refs.recollectionBannerPanel;
                     enemyTargetHUDPanel = refs.enemyTargetHUDPanel;
                     enemyTargetCardTemplate = refs.enemyTargetCardTemplate;
+                    qtePanel = refs.qtePanel;
+                    qteTargetCircle = refs.qteTargetCircle;
+                    qteOuterRing = refs.qteOuterRing;
 
                     if (enemyTargetCardTemplate == null && enemyTargetHUDPanel != null)
                     {
@@ -221,6 +241,9 @@ namespace RPG.Combat
 
                     defendButton.onClick.RemoveAllListeners();
                     defendButton.onClick.AddListener(() => OnGuardButtonClicked());
+                    if (defendButton != null) defendButton.gameObject.SetActive(false);
+
+                    CreateSharedUltimateUI();
 
                     if (refs.restartButton != null)
                     {
@@ -330,6 +353,9 @@ namespace RPG.Combat
 
             // Nút Guard/Defend
             defendButton = CreateUIButton(actionPanel, "Phòng Thủ (Guard)", () => OnGuardButtonClicked());
+            if (defendButton != null) defendButton.gameObject.SetActive(false);
+
+            CreateSharedUltimateUI();
 
             // 4.5 Tạo Bảng Chọn Mục Tiêu (Target Selection Panel) nằm bên trái Action Panel
             GameObject targetPanelGO = new GameObject("TargetSelectionPanel");
@@ -759,6 +785,8 @@ namespace RPG.Combat
         {
             if (partyPanel == null || CombatManager.Instance == null) return;
 
+            UpdateSharedUltimateBar();
+
             // Xóa cũ
             foreach (Transform child in partyPanel)
             {
@@ -972,63 +1000,7 @@ namespace RPG.Combat
                     }
                 }
 
-                // Nút Ultimate Cắt Lượt
-                if (!ally.isCommander)
-                {
-                    GameObject ultBtnGO = new GameObject("UltimateButton");
-                    ultBtnGO.transform.SetParent(cardGO.transform);
-                    RectTransform utRect = ultBtnGO.AddComponent<RectTransform>();
-                    utRect.sizeDelta = new Vector2(99f, 20f);
-                    utRect.localScale = Vector3.one;
 
-                    LayoutElement leUlt = ultBtnGO.AddComponent<LayoutElement>();
-                    leUlt.preferredWidth = 99f;
-                    leUlt.preferredHeight = 20f;
-
-                    Image bImg = ultBtnGO.AddComponent<Image>();
-                    bImg.color = Color.red;
-
-                    Button ultBtn = ultBtnGO.AddComponent<Button>();
-                    ultBtn.targetGraphic = bImg;
-                    ultBtn.onClick.AddListener(() => {
-                        CombatManager.Instance.RequestUltimateCast(ally);
-                    });
-
-                    GameObject btGO = new GameObject("BtnText");
-                    btGO.transform.SetParent(ultBtnGO.transform);
-                    RectTransform btRect = btGO.AddComponent<RectTransform>();
-                    btRect.anchorMin = Vector2.zero;
-                    btRect.anchorMax = Vector2.one;
-                    btRect.offsetMin = Vector2.zero;
-                    btRect.offsetMax = Vector2.zero;
-
-                    Text btTxt = btGO.AddComponent<Text>();
-                    btTxt.raycastTarget = false;
-                    btTxt.text = "ULTIMATE";
-                    btTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-                    btTxt.fontSize = 8;
-                    btTxt.alignment = TextAnchor.MiddleCenter;
-                    btTxt.color = Color.white;
-
-                    if (ally.currentEnergy >= 100f && !ally.isDead)
-                    {
-                        ultBtn.interactable = true;
-                        bImg.color = Color.yellow;
-                        btTxt.color = Color.black;
-                        
-                        Outline bo = ultBtnGO.AddComponent<Outline>();
-                        bo.effectColor = Color.red;
-                        bo.effectDistance = new Vector2(1f, -1f);
-                    }
-                    else
-                    {
-                        ultBtn.interactable = false;
-                        bImg.color = new Color(0.4f, 0.1f, 0.1f, 0.5f);
-                        btTxt.color = Color.gray;
-                    }
-
-                    partyUltButtons[ally] = ultBtn;
-                }
 
                 // --- VẼ BUFF/DEBUFF CHO PARTY MEMBER ---
                 GameObject buffsGO = new GameObject("PartyBuffContainer");
@@ -1434,6 +1406,55 @@ namespace RPG.Combat
 
         private void Update()
         {
+            if (isQteActive)
+            {
+                qteTimer += Time.unscaledDeltaTime;
+                float progress = qteTimer / qteDuration;
+                float currentScale = Mathf.Lerp(3.0f, 0.0f, progress);
+
+                if (qteOuterRing != null)
+                {
+                    qteOuterRing.rectTransform.localScale = Vector3.one * currentScale;
+                    if (currentScale >= 0.85f && currentScale <= 1.25f)
+                    {
+                        qteOuterRing.color = Color.green;
+                    }
+                    else
+                    {
+                        qteOuterRing.color = new Color(1f, 0.6f, 0f);
+                    }
+                }
+
+                bool inputPressed = false;
+                if (UnityEngine.InputSystem.Keyboard.current != null && UnityEngine.InputSystem.Keyboard.current.spaceKey.wasPressedThisFrame)
+                {
+                    inputPressed = true;
+                }
+                else if (UnityEngine.InputSystem.Mouse.current != null && UnityEngine.InputSystem.Mouse.current.leftButton.wasPressedThisFrame)
+                {
+                    inputPressed = true;
+                }
+
+                if (inputPressed)
+                {
+                    if (currentScale >= 0.85f && currentScale <= 1.25f)
+                    {
+                        ResolveQTE(true);
+                    }
+                    else
+                    {
+                        ResolveQTE(false);
+                    }
+                    return;
+                }
+
+                if (progress >= 1.0f || currentScale < 0.8f)
+                {
+                    ResolveQTE(false);
+                    return;
+                }
+            }
+
             if (targetSelectionPanel != null && targetSelectionPanel.gameObject.activeSelf)
             {
                 // 1. Esc to cancel
@@ -2043,5 +2064,337 @@ namespace RPG.Combat
             cachedWhiteSprite = Sprite.Create(tex, new Rect(0, 0, 2, 2), new Vector2(0.5f, 0.5f));
             return cachedWhiteSprite;
         }
+
+        #region JRPG Shared Ultimate UI & Parry QTE Methods
+
+        private void CreateSharedUltimateUI()
+        {
+            if (overlayCanvas == null) return;
+            
+            Transform oldBar = overlayCanvas.transform.Find("SharedUltimateBarPanel");
+            if (oldBar != null) Destroy(oldBar.gameObject);
+
+            GameObject sharedBarGO = new GameObject("SharedUltimateBarPanel");
+            sharedBarGO.transform.SetParent(overlayCanvas.transform, false);
+            RectTransform sharedBarRect = sharedBarGO.AddComponent<RectTransform>();
+            sharedBarRect.anchorMin = new Vector2(0f, 0f);
+            sharedBarRect.anchorMax = new Vector2(0f, 0f);
+            sharedBarRect.pivot = new Vector2(0f, 0f);
+            sharedBarRect.anchoredPosition = new Vector2(20f, 210f); // Positioned above Party Panel
+            sharedBarRect.sizeDelta = new Vector2(500f, 30f);
+            sharedBarRect.localScale = Vector3.one;
+
+            Image sharedBarBg = sharedBarGO.AddComponent<Image>();
+            sharedBarBg.color = new Color(0.1f, 0.1f, 0.1f, 0.7f);
+
+            sharedUltimateButton = sharedBarGO.AddComponent<Button>();
+            sharedUltimateButton.onClick.AddListener(ShowUltimateCharacterSelector);
+
+            GameObject sharedFillGO = new GameObject("SharedUltimateBarFill");
+            sharedFillGO.transform.SetParent(sharedBarGO.transform, false);
+            RectTransform sharedFillRect = sharedFillGO.AddComponent<RectTransform>();
+            sharedFillRect.anchorMin = Vector2.zero;
+            sharedFillRect.anchorMax = Vector2.one;
+            sharedFillRect.offsetMin = Vector2.zero;
+            sharedFillRect.offsetMax = Vector2.zero;
+            
+            sharedUltimateBarFill = sharedFillGO.AddComponent<Image>();
+            sharedUltimateBarFill.type = Image.Type.Filled;
+            sharedUltimateBarFill.fillMethod = Image.FillMethod.Horizontal;
+            sharedUltimateBarFill.fillOrigin = 0;
+            sharedUltimateBarFill.color = new Color(0.65f, 0.25f, 0.95f);
+
+            GameObject sharedTextGO = new GameObject("SharedUltimateText");
+            sharedTextGO.transform.SetParent(sharedBarGO.transform, false);
+            RectTransform sharedTextRect = sharedTextGO.AddComponent<RectTransform>();
+            sharedTextRect.anchorMin = Vector2.zero;
+            sharedTextRect.anchorMax = Vector2.one;
+            sharedTextRect.offsetMin = Vector2.zero;
+            sharedTextRect.offsetMax = Vector2.zero;
+            
+            sharedUltimateText = sharedTextGO.AddComponent<Text>();
+            sharedUltimateText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            sharedUltimateText.fontSize = 11;
+            sharedUltimateText.alignment = TextAnchor.MiddleCenter;
+            sharedUltimateText.color = Color.white;
+            sharedUltimateText.text = "SHARED ULTIMATE: 0%";
+
+            Outline sharedOutline = sharedTextGO.AddComponent<Outline>();
+            sharedOutline.effectColor = Color.black;
+            sharedOutline.effectDistance = new Vector2(1f, -1f);
+
+            sharedUltimateBarPanel = sharedBarGO.transform;
+        }
+
+        public void UpdateSharedUltimateBar()
+        {
+            if (sharedUltimateBarPanel == null && overlayCanvas != null)
+            {
+                sharedUltimateBarPanel = overlayCanvas.transform.Find("SharedUltimateBarPanel");
+            }
+            if (sharedUltimateBarPanel == null || CombatManager.Instance == null) return;
+            
+            float energy = CombatManager.Instance.sharedEnergy;
+            if (sharedUltimateBarFill != null)
+            {
+                sharedUltimateBarFill.fillAmount = energy / 100f;
+                sharedUltimateBarFill.color = (energy >= 100f) ? new Color(1f, 0.8f, 0f) : new Color(0.65f, 0.25f, 0.95f);
+            }
+            if (sharedUltimateText != null)
+            {
+                if (energy >= 100f)
+                {
+                    sharedUltimateText.text = "SHARED ULTIMATE: 100% (CLICK TO CAST ULTIMATE!)";
+                    sharedUltimateText.color = Color.yellow;
+                }
+                else
+                {
+                    sharedUltimateText.text = $"SHARED ULTIMATE: {energy:F0}%";
+                    sharedUltimateText.color = Color.white;
+                }
+            }
+            if (sharedUltimateButton != null)
+            {
+                sharedUltimateButton.interactable = (energy >= 100f);
+            }
+        }
+
+        public void ShowUltimateCharacterSelector()
+        {
+            if (CombatManager.Instance == null) return;
+
+            if (ultimateSelectorPanel != null) Destroy(ultimateSelectorPanel.gameObject);
+
+            GameObject selectorGO = new GameObject("UltimateSelectorPanel");
+            selectorGO.transform.SetParent(overlayCanvas.transform, false);
+            RectTransform selectorRect = selectorGO.AddComponent<RectTransform>();
+            selectorRect.anchorMin = new Vector2(0.5f, 0.5f);
+            selectorRect.anchorMax = new Vector2(0.5f, 0.5f);
+            selectorRect.pivot = new Vector2(0.5f, 0.5f);
+            selectorRect.sizeDelta = new Vector2(300f, 300f);
+            selectorRect.anchoredPosition = Vector2.zero;
+
+            Image bg = selectorGO.AddComponent<Image>();
+            bg.color = new Color(0.05f, 0.05f, 0.07f, 0.95f);
+            
+            Outline outline = selectorGO.AddComponent<Outline>();
+            outline.effectColor = Color.yellow;
+            outline.effectDistance = new Vector2(2f, -2f);
+
+            VerticalLayoutGroup layout = selectorGO.AddComponent<VerticalLayoutGroup>();
+            layout.childAlignment = TextAnchor.MiddleCenter;
+            layout.spacing = 10f;
+            layout.padding = new RectOffset(15, 15, 15, 15);
+            layout.childControlHeight = false;
+            layout.childControlWidth = false;
+
+            ultimateSelectorPanel = selectorGO.transform;
+
+            GameObject titleGO = new GameObject("Title");
+            titleGO.transform.SetParent(selectorGO.transform, false);
+            RectTransform titleRect = titleGO.AddComponent<RectTransform>();
+            titleRect.sizeDelta = new Vector2(270f, 30f);
+            Text titleTxt = titleGO.AddComponent<Text>();
+            titleTxt.text = "SELECT ALLY FOR ULTIMATE CAST";
+            titleTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            titleTxt.fontSize = 12;
+            titleTxt.fontStyle = FontStyle.Bold;
+            titleTxt.alignment = TextAnchor.MiddleCenter;
+            titleTxt.color = Color.yellow;
+
+            List<CombatCharacter> aliveAllies = CombatManager.Instance.GetAliveAllies();
+            foreach (var ally in aliveAllies)
+            {
+                if (ally.isCommander) continue;
+                
+                Button btn = CreateUIButton(selectorGO.transform, $"{ally.characterData.characterName} (ULTIMATE)", () => {
+                    Destroy(selectorGO);
+                    CombatManager.Instance.RequestSharedUltimateCast(ally);
+                });
+                Image img = btn.GetComponent<Image>();
+                if (img != null) img.color = new Color(0.65f, 0.25f, 0.95f);
+            }
+
+            Button cancelBtn = CreateUIButton(selectorGO.transform, "CANCEL", () => {
+                Destroy(selectorGO);
+            });
+            Image cancelImg = cancelBtn.GetComponent<Image>();
+            if (cancelImg != null) cancelImg.color = Color.gray;
+        }
+
+        public void StartParryQTE(CombatCharacter target, CombatCharacter attacker, Action<bool> onResult)
+        {
+            if (isQteActive) return;
+
+            qteCallback = onResult;
+            isQteActive = true;
+            qteTimer = 0f;
+
+            originalTimeScale = Time.timeScale;
+            Time.timeScale = 0.05f; // Slow down time (dừng nhẹ thời gian)
+
+            if (qtePanel == null)
+            {
+                CreateQteUI();
+            }
+            else
+            {
+                if (qteTargetCircle != null && qteTargetCircle.sprite == null)
+                {
+                    qteTargetCircle.sprite = GetDefaultCircleSprite();
+                }
+                if (qteOuterRing != null && qteOuterRing.sprite == null)
+                {
+                    qteOuterRing.sprite = GetDefaultCircleSprite();
+                }
+            }
+
+            qtePanel.gameObject.SetActive(true);
+            qteTargetCircle.rectTransform.localScale = Vector3.one;
+            qteOuterRing.rectTransform.localScale = Vector3.one * 3f;
+            
+            RectTransform qteRect = qtePanel.GetComponent<RectTransform>();
+            if (qteRect != null)
+            {
+                qteRect.anchorMin = new Vector2(1f, 0f);
+                qteRect.anchorMax = new Vector2(1f, 0f);
+                qteRect.pivot = new Vector2(0.5f, 0.5f);
+                qteRect.anchoredPosition = new Vector2(-150f, 180f);
+            }
+
+            qteTargetCircle.color = Color.green;
+            qteOuterRing.color = new Color(1f, 0.6f, 0f);
+        }
+
+        private void CreateQteUI()
+        {
+            GameObject qteGO = new GameObject("QTE_Panel");
+            qteGO.transform.SetParent(overlayCanvas.transform, false);
+            
+            RectTransform qteRect = qteGO.AddComponent<RectTransform>();
+            qteRect.anchorMin = new Vector2(1f, 0f);
+            qteRect.anchorMax = new Vector2(1f, 0f);
+            qteRect.pivot = new Vector2(0.5f, 0.5f);
+            qteRect.anchoredPosition = new Vector2(-150f, 180f);
+            qteRect.sizeDelta = new Vector2(200f, 200f);
+            qtePanel = qteGO.transform;
+
+            GameObject targetCircleGO = new GameObject("TargetCircle");
+            targetCircleGO.transform.SetParent(qteGO.transform, false);
+            RectTransform targetCircleRect = targetCircleGO.AddComponent<RectTransform>();
+            targetCircleRect.sizeDelta = new Vector2(100f, 100f);
+            qteTargetCircle = targetCircleGO.AddComponent<Image>();
+            qteTargetCircle.sprite = GetDefaultCircleSprite();
+
+            GameObject outerRingGO = new GameObject("OuterRing");
+            outerRingGO.transform.SetParent(qteGO.transform, false);
+            RectTransform outerRingRect = outerRingGO.AddComponent<RectTransform>();
+            outerRingRect.sizeDelta = new Vector2(100f, 100f);
+            qteOuterRing = outerRingGO.AddComponent<Image>();
+            qteOuterRing.sprite = GetDefaultCircleSprite();
+
+            GameObject glowGO = new GameObject("Glow");
+            glowGO.transform.SetParent(qteGO.transform, false);
+            glowGO.transform.SetAsFirstSibling();
+            RectTransform glowRect = glowGO.AddComponent<RectTransform>();
+            glowRect.sizeDelta = new Vector2(90f, 90f);
+            Image glowImg = glowGO.AddComponent<Image>();
+            glowImg.sprite = GetDefaultFilledCircleSprite();
+            glowImg.color = new Color(0.2f, 0.8f, 0.2f, 0.4f);
+
+            GameObject labelGO = new GameObject("LabelText");
+            labelGO.transform.SetParent(qteGO.transform, false);
+            RectTransform labelRect = labelGO.AddComponent<RectTransform>();
+            labelRect.anchoredPosition = new Vector2(0f, 75f);
+            labelRect.sizeDelta = new Vector2(200f, 30f);
+            Text labelTxt = labelGO.AddComponent<Text>();
+            labelTxt.text = "PRESS SPACE / CLICK TO PARRY!";
+            labelTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            labelTxt.fontSize = 10;
+            labelTxt.alignment = TextAnchor.MiddleCenter;
+            labelTxt.color = Color.white;
+            
+            Outline labelOutline = labelGO.AddComponent<Outline>();
+            labelOutline.effectColor = Color.black;
+        }
+
+        private void ResolveQTE(bool success)
+        {
+            if (!isQteActive) return;
+
+            isQteActive = false;
+            Time.timeScale = originalTimeScale;
+            qtePanel.gameObject.SetActive(false);
+
+            var callback = qteCallback;
+            qteCallback = null;
+            callback?.Invoke(success);
+        }
+
+        private static Sprite cachedCircleSprite;
+        private Sprite GetDefaultCircleSprite()
+        {
+            if (cachedCircleSprite != null) return cachedCircleSprite;
+            int size = 128;
+            Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            float center = size / 2f;
+            float outerRadius = size / 2f - 2f;
+            float innerRadius = outerRadius - 4f;
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float dx = x - center;
+                    float dy = y - center;
+                    float dist = Mathf.Sqrt(dx * dx + dy * dy);
+                    if (dist >= innerRadius && dist <= outerRadius)
+                    {
+                        tex.SetPixel(x, y, Color.white);
+                    }
+                    else
+                    {
+                        tex.SetPixel(x, y, Color.clear);
+                    }
+                }
+            }
+            tex.Apply();
+            cachedCircleSprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f));
+            return cachedCircleSprite;
+        }
+
+        private static Sprite cachedFilledCircleSprite;
+        private Sprite GetDefaultFilledCircleSprite()
+        {
+            if (cachedFilledCircleSprite != null) return cachedFilledCircleSprite;
+            int size = 128;
+            Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            float center = size / 2f;
+            float radius = size / 2f - 2f;
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float dx = x - center;
+                    float dy = y - center;
+                    float dist = Mathf.Sqrt(dx * dx + dy * dy);
+                    if (dist <= radius)
+                    {
+                        float alpha = 1.0f - (dist / radius);
+                        tex.SetPixel(x, y, new Color(1f, 1f, 1f, alpha * 0.8f));
+                    }
+                    else
+                    {
+                        tex.SetPixel(x, y, Color.clear);
+                    }
+                }
+            }
+            tex.Apply();
+            cachedFilledCircleSprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f));
+            return cachedFilledCircleSprite;
+        }
+
+        #endregion
     }
 }

@@ -298,6 +298,24 @@ namespace RPG.Combat
                         }
                     }
                     break;
+
+                case ElementType.Ether:
+                    // ATK +20% và Speed +15% cả đội (Tối ưu hóa Ether)
+                    float etherAtkVal = 0.20f * resonanceMultiplier;
+                    float etherSpeedVal = 0.15f * resonanceMultiplier;
+                    EffectData etherAtkBuff = CreateTempEffect("Ether_Passive_ATK", "Ether Resonance ATK", EffectType.ATK_BUFF, etherAtkVal, 2);
+                    EffectData etherSpeedBuff = CreateTempEffect("Ether_Passive_Speed", "Ether Resonance Speed", EffectType.SPEED_CHANGE, etherSpeedVal, 2);
+                    
+                    foreach (var ally in aliveAllies)
+                    {
+                        if (ally != activeCommander)
+                        {
+                            EffectManager.Instance.ApplyEffect(activeCommander, ally, etherAtkBuff);
+                            EffectManager.Instance.ApplyEffect(activeCommander, ally, etherSpeedBuff);
+                            FloatingText.Instance.SpawnText(ally.transform.position + Vector3.up * 1.5f, "ETHER POWER UP!", new Color(0.65f, 0.25f, 0.95f), 1.0f);
+                        }
+                    }
+                    break;
             }
         }
 

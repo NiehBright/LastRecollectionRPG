@@ -20,8 +20,8 @@ namespace RPG.Combat
         /// </summary>
         public static EnhancedSkillResult Resolve(ElementType commander, ElementType ally, SkillType skillType)
         {
-            // Chỉ cường hóa Basic (Skill 1) và Special (Skill 2). Không cường hóa Ultimate hoặc Physical Chỉ Huy.
-            if (skillType == SkillType.ULTIMATE || commander == ElementType.Physical)
+            // Chỉ cường hóa Basic (Skill 1) và Special (Skill 2). Không cường hóa Ultimate.
+            if (skillType == SkillType.ULTIMATE)
             {
                 return null;
             }
@@ -63,6 +63,12 @@ namespace RPG.Combat
                     break;
                 case ElementType.Nature:
                     ResolveNatureCommander(ally, skillType, result);
+                    break;
+                case ElementType.Physical:
+                    ResolvePhysicalCommander(ally, skillType, result);
+                    break;
+                case ElementType.Ether:
+                    ResolveEtherCommander(ally, skillType, result);
                     break;
             }
 
@@ -129,6 +135,54 @@ namespace RPG.Combat
                     res.additionalEffects.Add(CreateTempEffect("flame_bar", "Flame Barrier", EffectType.REFLECT, 0.15f, 2, Color.red));
                 }
             }
+            else if (ally == ElementType.Fire)
+            {
+                if (skillType == SkillType.BASIC)
+                {
+                    res.enhancementName = "Blazing Resonance";
+                    res.description = "Tăng 30% sát thương của đòn đánh thường hệ Hỏa.";
+                    res.damageMultiplierBonus = 0.30f;
+                }
+                else if (skillType == SkillType.SPECIAL)
+                {
+                    res.enhancementName = "Supernova";
+                    res.description = "Đòn đánh đặc biệt tăng 40% sát thương và có 50% cơ hội thiêu đốt (Burn) diện rộng.";
+                    res.damageMultiplierBonus = 0.40f;
+                    res.additionalEffects.Add(CreateTempEffect("burn_supernova", "Supernova Burn", EffectType.BURN, 0.20f, 2, Color.red));
+                }
+            }
+            else if (ally == ElementType.Physical)
+            {
+                if (skillType == SkillType.BASIC)
+                {
+                    res.enhancementName = "Melt Armor";
+                    res.description = "Đòn tấn công vật lý giảm 20% giáp (DEF) kẻ địch trong 2 lượt.";
+                    res.additionalEffects.Add(CreateTempEffect("melt_def", "Melt DEF Down", EffectType.DEF_BUFF, -0.20f, 2, Color.red));
+                }
+                else if (skillType == SkillType.SPECIAL)
+                {
+                    res.enhancementName = "Molten Blade";
+                    res.description = "Đòn đánh đặc biệt nhận thêm 35% sát thương và gây hiệu ứng Burn.";
+                    res.damageMultiplierBonus = 0.35f;
+                    res.additionalEffects.Add(CreateTempEffect("burn_molten", "Molten Burn", EffectType.BURN, 0.15f, 2, Color.red));
+                }
+            }
+            else if (ally == ElementType.Ether)
+            {
+                if (skillType == SkillType.BASIC)
+                {
+                    res.enhancementName = "Solar Flare";
+                    res.description = "Gây thêm 40% sát thương hệ Ether bỏ qua phòng ngự.";
+                    res.damageMultiplierBonus = 0.40f;
+                }
+                else if (skillType == SkillType.SPECIAL)
+                {
+                    res.enhancementName = "Cosmic Blast";
+                    res.description = "Đòn đánh đặc biệt gây sát thương cực lớn (+50% dmg) và thiêu đốt diện rộng.";
+                    res.damageMultiplierBonus = 0.50f;
+                    res.additionalEffects.Add(CreateTempEffect("burn_cosmic", "Cosmic Burn", EffectType.BURN, 0.20f, 2, Color.red));
+                }
+            }
         }
         #endregion
 
@@ -186,6 +240,53 @@ namespace RPG.Combat
                     res.additionalEffects.Add(CreateTempEffect("ice_arm", "Ice Armor Def", EffectType.DEF_BUFF, 0.30f, 2, Color.cyan));
                 }
             }
+            else if (ally == ElementType.Ice)
+            {
+                if (skillType == SkillType.BASIC)
+                {
+                    res.enhancementName = "Frost Resonance";
+                    res.description = "Đòn đánh thường làm giảm 15% Speed kẻ địch trong 2 lượt.";
+                    res.additionalEffects.Add(CreateTempEffect("chill_res", "Frost Speed Down", EffectType.SPEED_CHANGE, -0.15f, 2, Color.cyan));
+                }
+                else if (skillType == SkillType.SPECIAL)
+                {
+                    res.enhancementName = "Glacial Freeze";
+                    res.description = "Đòn đánh đặc biệt đóng băng (Freeze) mục tiêu 1 lượt.";
+                    res.additionalEffects.Add(CreateTempEffect("freeze_res", "Glacial Freeze", EffectType.FREEZE, 1f, 1, Color.cyan));
+                }
+            }
+            else if (ally == ElementType.Physical)
+            {
+                if (skillType == SkillType.BASIC)
+                {
+                    res.enhancementName = "Brittle Strike";
+                    res.description = "Đòn tấn công vật lý gây thêm 30% sát thương lên kẻ địch bị đóng băng.";
+                    res.damageMultiplierBonus = 0.30f;
+                }
+                else if (skillType == SkillType.SPECIAL)
+                {
+                    res.enhancementName = "Shattering Impact";
+                    res.description = "Đòn đánh đặc biệt có khả năng phá vỡ giáp của quái, giảm 30% DEF trong 2 lượt.";
+                    res.additionalEffects.Add(CreateTempEffect("shatter_def", "Shatter DEF Down", EffectType.DEF_BUFF, -0.30f, 2, Color.cyan));
+                }
+            }
+            else if (ally == ElementType.Ether)
+            {
+                if (skillType == SkillType.BASIC)
+                {
+                    res.enhancementName = "Absolute Zero";
+                    res.description = "Đòn đánh thường gây sát thương cực mạnh (+35% dmg) và giảm 20% Tốc độ kẻ địch.";
+                    res.damageMultiplierBonus = 0.35f;
+                    res.additionalEffects.Add(CreateTempEffect("zero_speed", "Zero Speed Down", EffectType.SPEED_CHANGE, -0.20f, 2, Color.cyan));
+                }
+                else if (skillType == SkillType.SPECIAL)
+                {
+                    res.enhancementName = "Nebula Freeze";
+                    res.description = "Đòn đánh đặc biệt đóng băng toàn bộ kẻ địch có tỷ lệ 35%.";
+                    res.specialCondition = "ICE_MIST_FREEZE";
+                    res.specialValue = 0.35f;
+                }
+            }
         }
         #endregion
 
@@ -240,6 +341,54 @@ namespace RPG.Combat
                     res.additionalEffects.Add(CreateTempEffect("thun_aura", "Thunder Aura Reflect", EffectType.REFLECT, 0.20f, 3, Color.yellow));
                 }
             }
+            else if (ally == ElementType.Lightning)
+            {
+                if (skillType == SkillType.BASIC)
+                {
+                    res.enhancementName = "Volt Resonance";
+                    res.description = "Đòn đánh thường tăng 30% sát thương.";
+                    res.damageMultiplierBonus = 0.30f;
+                }
+                else if (skillType == SkillType.SPECIAL)
+                {
+                    res.enhancementName = "Overload Shock";
+                    res.description = "Đòn đánh đặc biệt giật sét lan truyền, tăng 40% sát thương và có 30% cơ hội Stun mục tiêu.";
+                    res.damageMultiplierBonus = 0.40f;
+                    res.additionalEffects.Add(CreateTempEffect("stun_overload", "Overload Stun", EffectType.STUN, 1f, 1, Color.yellow));
+                }
+            }
+            else if (ally == ElementType.Physical)
+            {
+                if (skillType == SkillType.BASIC)
+                {
+                    res.enhancementName = "Conductive Blade";
+                    res.description = "Đòn tấn công vật lý tăng 25% sát thương.";
+                    res.damageMultiplierBonus = 0.25f;
+                }
+                else if (skillType == SkillType.SPECIAL)
+                {
+                    res.enhancementName = "Thunder Strike";
+                    res.description = "Đòn đánh đặc biệt gây choáng (Stun) kẻ địch 1 lượt.";
+                    res.additionalEffects.Add(CreateTempEffect("stun_strike", "Thunder Stun", EffectType.STUN, 1f, 1, Color.yellow));
+                }
+            }
+            else if (ally == ElementType.Ether)
+            {
+                if (skillType == SkillType.BASIC)
+                {
+                    res.enhancementName = "Cosmic Lightning";
+                    res.description = "Đòn đánh thường tăng 30% sát thương và bỏ qua 25% DEF của mục tiêu.";
+                    res.damageMultiplierBonus = 0.30f;
+                }
+                else if (skillType == SkillType.SPECIAL)
+                {
+                    res.enhancementName = "Supernova Discharge";
+                    res.description = "Đòn đánh đặc biệt tăng 45% sát thương và gây Stun diện rộng (30% cơ hội).";
+                    res.damageMultiplierBonus = 0.45f;
+                    res.specialCondition = "THUNDER_BURST_FREEZE";
+                    res.specialValue = 0.30f;
+                }
+            }
         }
         #endregion
 
@@ -289,6 +438,250 @@ namespace RPG.Combat
                     res.enhancementName = "Living Spore";
                     res.description = "Bào tử sống ký sinh. Găm bào tử lôi thảo vào kẻ địch, sau 2 lượt bào tử sẽ tự nổ gây sát thương diện rộng Nature+Lightning.";
                     res.specialCondition = "LIVING_SPORE_BOMB";
+                }
+            }
+            else if (ally == ElementType.Nature)
+            {
+                if (skillType == SkillType.BASIC)
+                {
+                    res.enhancementName = "Vigor Resonance";
+                    res.description = "Đòn đánh thường tăng 20% sát thương và hồi 10% HP cho đồng minh thấp máu nhất.";
+                    res.damageMultiplierBonus = 0.20f;
+                }
+                else if (skillType == SkillType.SPECIAL)
+                {
+                    res.enhancementName = "Forest Shield";
+                    res.description = "Đòn đánh đặc biệt tạo lá chắn hấp thụ sát thương bằng 15% HP tối đa trong 2 lượt.";
+                    res.additionalEffects.Add(CreateTempEffect("forest_shield", "Forest Shield", EffectType.SHIELD, 0.15f, 2, Color.green));
+                }
+            }
+            else if (ally == ElementType.Physical)
+            {
+                if (skillType == SkillType.BASIC)
+                {
+                    res.enhancementName = "Thorny Blade";
+                    res.description = "Đòn tấn công vật lý tăng 20% sát thương và phản lại 20% sát thương cận chiến nhận vào.";
+                    res.damageMultiplierBonus = 0.20f;
+                    res.additionalEffects.Add(CreateTempEffect("thorn_reflect", "Thorn Reflect", EffectType.REFLECT, 0.20f, 2, Color.green));
+                }
+                else if (skillType == SkillType.SPECIAL)
+                {
+                    res.enhancementName = "Rejuvenating Strike";
+                    res.description = "Đòn đánh đặc biệt tăng 30% sát thương và hồi 15% HP cho bản thân.";
+                    res.damageMultiplierBonus = 0.30f;
+                }
+            }
+            else if (ally == ElementType.Ether)
+            {
+                if (skillType == SkillType.BASIC)
+                {
+                    res.enhancementName = "Universal Growth";
+                    res.description = "Đòn đánh thường tăng 30% sát thương và tăng 15% Tốc độ bản thân trong 2 lượt.";
+                    res.damageMultiplierBonus = 0.30f;
+                    res.additionalEffects.Add(CreateTempEffect("growth_speed", "Growth Speed Up", EffectType.SPEED_CHANGE, 0.15f, 2, Color.green));
+                }
+                else if (skillType == SkillType.SPECIAL)
+                {
+                    res.enhancementName = "Genesis Beam";
+                    res.description = "Đòn đánh đặc biệt tăng 40% sát thương và hồi máu cho cả đội 10% HP.";
+                    res.damageMultiplierBonus = 0.40f;
+                }
+            }
+        }
+        #endregion
+
+        #region Physical Commander (Vật Lý)
+        private static void ResolvePhysicalCommander(ElementType ally, SkillType skillType, EnhancedSkillResult res)
+        {
+            if (ally == ElementType.Physical)
+            {
+                if (skillType == SkillType.BASIC)
+                {
+                    res.enhancementName = "Iron Will";
+                    res.description = "Đòn đánh thường tăng 35% sát thương.";
+                    res.damageMultiplierBonus = 0.35f;
+                }
+                else if (skillType == SkillType.SPECIAL)
+                {
+                    res.enhancementName = "Shield Breaker";
+                    res.description = "Đòn đánh đặc biệt giảm 40% DEF kẻ địch trong 2 lượt.";
+                    res.additionalEffects.Add(CreateTempEffect("phys_def_down", "Shield Breaker DEF Down", EffectType.DEF_BUFF, -0.40f, 2, Color.gray));
+                }
+            }
+            else if (ally == ElementType.Fire)
+            {
+                if (skillType == SkillType.BASIC)
+                {
+                    res.enhancementName = "Combustion Punch";
+                    res.description = "Đòn đánh thường gây thêm hiệu ứng Burn.";
+                    res.additionalEffects.Add(CreateTempEffect("phys_burn", "Combustion Burn", EffectType.BURN, 0.15f, 2, Color.red));
+                }
+                else if (skillType == SkillType.SPECIAL)
+                {
+                    res.enhancementName = "Explosive Thrust";
+                    res.description = "Đòn đánh đặc biệt tăng 40% sát thương và nổ lan ra quái xung quanh.";
+                    res.damageMultiplierBonus = 0.40f;
+                }
+            }
+            else if (ally == ElementType.Ice)
+            {
+                if (skillType == SkillType.BASIC)
+                {
+                    res.enhancementName = "Piercing Ice";
+                    res.description = "Đòn đánh thường giảm 15% Speed kẻ địch trong 2 lượt.";
+                    res.additionalEffects.Add(CreateTempEffect("phys_speed_down", "Piercing Ice Slow", EffectType.SPEED_CHANGE, -0.15f, 2, Color.cyan));
+                }
+                else if (skillType == SkillType.SPECIAL)
+                {
+                    res.enhancementName = "Glacial Armor";
+                    res.description = "Đòn đánh đặc biệt tăng 30% DEF cho bản thân.";
+                    res.additionalEffects.Add(CreateTempEffect("phys_ice_def", "Glacial Armor DEF Up", EffectType.DEF_BUFF, 0.30f, 2, Color.cyan));
+                }
+            }
+            else if (ally == ElementType.Lightning)
+            {
+                if (skillType == SkillType.BASIC)
+                {
+                    res.enhancementName = "Static Charge";
+                    res.description = "Đòn đánh thường tăng 20% Crit Rate.";
+                    res.damageMultiplierBonus = 0.20f;
+                }
+                else if (skillType == SkillType.SPECIAL)
+                {
+                    res.enhancementName = "High Voltage";
+                    res.description = "Đòn đánh đặc biệt có 40% cơ hội gây Stun mục tiêu.";
+                    res.additionalEffects.Add(CreateTempEffect("phys_stun", "High Voltage Stun", EffectType.STUN, 1f, 1, Color.yellow));
+                }
+            }
+            else if (ally == ElementType.Nature)
+            {
+                if (skillType == SkillType.BASIC)
+                {
+                    res.enhancementName = "Leech Seed";
+                    res.description = "Đòn đánh thường hút máu bằng 20% sát thương gây ra.";
+                    res.specialCondition = "OVERGROWTH_LIFESTEAL";
+                }
+                else if (skillType == SkillType.SPECIAL)
+                {
+                    res.enhancementName = "Wild Growth";
+                    res.description = "Đòn đánh đặc biệt hồi 10% HP cho cả đội.";
+                    res.damageMultiplierBonus = 0.20f;
+                }
+            }
+            else if (ally == ElementType.Ether)
+            {
+                if (skillType == SkillType.BASIC)
+                {
+                    res.enhancementName = "Void Slash";
+                    res.description = "Đòn đánh thường tăng 30% sát thương hệ Ether.";
+                    res.damageMultiplierBonus = 0.30f;
+                }
+                else if (skillType == SkillType.SPECIAL)
+                {
+                    res.enhancementName = "Dimensional Strike";
+                    res.description = "Đòn đánh đặc biệt tăng 45% sát thương và bỏ qua phòng ngự.";
+                    res.damageMultiplierBonus = 0.45f;
+                }
+            }
+        }
+        #endregion
+
+        #region Ether Commander (Supreme)
+        private static void ResolveEtherCommander(ElementType ally, SkillType skillType, EnhancedSkillResult res)
+        {
+            if (ally == ElementType.Ether)
+            {
+                if (skillType == SkillType.BASIC)
+                {
+                    res.enhancementName = "Supernal Ether Resonance";
+                    res.description = "Đòn đánh thường tăng 40% sát thương và hồi 15% HP.";
+                    res.damageMultiplierBonus = 0.40f;
+                }
+                else if (skillType == SkillType.SPECIAL)
+                {
+                    res.enhancementName = "Singularity Collapse";
+                    res.description = "Đòn đánh đặc biệt tăng 50% sát thương và gây Stun mục tiêu trong 1 lượt.";
+                    res.damageMultiplierBonus = 0.50f;
+                    res.additionalEffects.Add(CreateTempEffect("ether_stun", "Singularity Stun", EffectType.STUN, 1f, 1, new Color(0.65f, 0.25f, 0.95f)));
+                }
+            }
+            else if (ally == ElementType.Physical)
+            {
+                if (skillType == SkillType.BASIC)
+                {
+                    res.enhancementName = "Etheric Blade";
+                    res.description = "Đòn tấn công vật lý nhận thêm 30% sát thương Ether và bỏ qua 20% DEF.";
+                    res.damageMultiplierBonus = 0.30f;
+                }
+                else if (skillType == SkillType.SPECIAL)
+                {
+                    res.enhancementName = "Aetherial Smash";
+                    res.description = "Đòn đánh đặc biệt tăng 45% sát thương và giảm 30% DEF kẻ địch.";
+                    res.damageMultiplierBonus = 0.45f;
+                    res.additionalEffects.Add(CreateTempEffect("ether_def_down", "Aetherial DEF Down", EffectType.DEF_BUFF, -0.30f, 2, new Color(0.65f, 0.25f, 0.95f)));
+                }
+            }
+            else if (ally == ElementType.Fire)
+            {
+                if (skillType == SkillType.BASIC)
+                {
+                    res.enhancementName = "Cosmic Fire";
+                    res.description = "Đòn đánh thường tăng 30% sát thương và gây thiêu đốt nặng (Burn 2 lượt).";
+                    res.damageMultiplierBonus = 0.30f;
+                    res.additionalEffects.Add(CreateTempEffect("ether_burn", "Cosmic Burn", EffectType.BURN, 0.20f, 2, Color.red));
+                }
+                else if (skillType == SkillType.SPECIAL)
+                {
+                    res.enhancementName = "Nebula Explosion";
+                    res.description = "Đòn đánh đặc biệt tăng 45% sát thương và gây Burn diện rộng.";
+                    res.damageMultiplierBonus = 0.45f;
+                    res.additionalEffects.Add(CreateTempEffect("ether_burn_aoe", "Nebula Burn", EffectType.BURN, 0.15f, 2, Color.red));
+                }
+            }
+            else if (ally == ElementType.Ice)
+            {
+                if (skillType == SkillType.BASIC)
+                {
+                    res.enhancementName = "Cosmic Frost";
+                    res.description = "Đòn đánh thường giảm 20% Speed quái vật trong 2 lượt.";
+                    res.additionalEffects.Add(CreateTempEffect("ether_slow", "Cosmic Speed Down", EffectType.SPEED_CHANGE, -0.20f, 2, Color.cyan));
+                }
+                else if (skillType == SkillType.SPECIAL)
+                {
+                    res.enhancementName = "Astral Freeze";
+                    res.description = "Đòn đánh đặc biệt đóng băng mục tiêu 1 lượt.";
+                    res.additionalEffects.Add(CreateTempEffect("ether_freeze", "Astral Freeze", EffectType.FREEZE, 1f, 1, Color.cyan));
+                }
+            }
+            else if (ally == ElementType.Lightning)
+            {
+                if (skillType == SkillType.BASIC)
+                {
+                    res.enhancementName = "Cosmic Spark";
+                    res.description = "Đòn đánh thường tăng 15% Crit Rate.";
+                    res.damageMultiplierBonus = 0.15f;
+                }
+                else if (skillType == SkillType.SPECIAL)
+                {
+                    res.enhancementName = "Galactic Overdrive";
+                    res.description = "Đòn đánh đặc biệt tăng 40% sát thương và có 35% cơ hội Stun mục tiêu.";
+                    res.damageMultiplierBonus = 0.40f;
+                    res.additionalEffects.Add(CreateTempEffect("ether_lightning_stun", "Galactic Stun", EffectType.STUN, 1f, 1, Color.yellow));
+                }
+            }
+            else if (ally == ElementType.Nature)
+            {
+                if (skillType == SkillType.BASIC)
+                {
+                    res.enhancementName = "Astral Growth";
+                    res.description = "Đòn đánh thường hồi 12% HP cho toàn bộ đồng minh.";
+                    res.damageMultiplierBonus = 0.20f;
+                }
+                else if (skillType == SkillType.SPECIAL)
+                {
+                    res.enhancementName = "Cosmic Shield";
+                    res.description = "Đòn đánh đặc biệt tạo khiên bảo vệ bằng 20% HP tối đa trong 2 lượt.";
+                    res.additionalEffects.Add(CreateTempEffect("ether_shield", "Cosmic Shield", EffectType.SHIELD, 0.20f, 2, Color.green));
                 }
             }
         }

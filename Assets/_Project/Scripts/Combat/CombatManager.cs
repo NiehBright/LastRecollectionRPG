@@ -35,12 +35,70 @@ namespace RPG.Combat
         private Quaternion defaultCameraRot = Quaternion.Euler(25f, 0f, 0f);
         private Coroutine cameraMoveCoroutine;
 
+        private CombatCharacter cameraFollowTarget = null;
+        private Vector3 cameraFollowOffset = new Vector3(0f, 4.5f, -8f);
+        private Vector3 cameraFollowVelocity = Vector3.zero;
+
+        private void LateUpdate()
+        {
+            if (cameraFollowTarget != null)
+            {
+                Camera mainCam = Camera.main;
+                if (mainCam != null)
+                {
+                    // Tái tạo góc nhìn Over-The-Shoulder (sau vai) bám theo nhân vật
+                    Vector3 currentOffset;
+                    Vector3 forwardDir;
+                    if (cameraFollowTarget.isAlly)
+                    {
+                        currentOffset = new Vector3(1.0f, 1.5f, -2.5f);
+                        forwardDir = Vector3.forward;
+                    }
+                    else
+                    {
+                        currentOffset = new Vector3(-1.0f, 1.5f, 2.5f);
+                        forwardDir = Vector3.back;
+                    }
+
+                    Vector3 targetCamPos = cameraFollowTarget.transform.position + currentOffset;
+                    mainCam.transform.position = Vector3.SmoothDamp(mainCam.transform.position, targetCamPos, ref cameraFollowVelocity, 0.05f);
+                    
+                    Vector3 lookTarget = cameraFollowTarget.transform.position + forwardDir * 3.0f + Vector3.up * 1.0f;
+                    Quaternion targetRot = Quaternion.LookRotation(lookTarget - mainCam.transform.position);
+                    mainCam.transform.rotation = Quaternion.Slerp(mainCam.transform.rotation, targetRot, Time.deltaTime * 12f);
+                }
+            }
+        }
+
         [Header("Cơ sở dữ liệu tương khắc")]
         public ElementWeaknessDatabase weaknessDatabase;
 
         [Header("Hàng chờ Chiêu cuối (Ultimate)")]
         private Queue<CombatCharacter> queuedUltimates = new Queue<CombatCharacter>();
         private bool isExecutingUltimateInterrupt = false;
+
+        [Header("Năng lượng Nộ dùng chung (Shared Ultimate Bar)")]
+        public float sharedEnergy = 0f;
+
+        public void AddSharedEnergy(float amount)
+        {
+            sharedEnergy = Mathf.Clamp(sharedEnergy + amount, 0f, 100f);
+            if (UIManager.Instance != null)
+            {
+                UIManager.Instance.UpdateSharedUltimateBar();
+                UIManager.Instance.UpdatePartyPanel();
+            }
+        }
+
+        public void ConsumeSharedEnergy(float amount)
+        {
+            sharedEnergy = Mathf.Clamp(sharedEnergy - amount, 0f, 100f);
+            if (UIManager.Instance != null)
+            {
+                UIManager.Instance.UpdateSharedUltimateBar();
+                UIManager.Instance.UpdatePartyPanel();
+            }
+        }
 
         // Bộ đếm lượt bị động để cộng 10% năng lượng
         private Dictionary<CombatCharacter, int> passiveTurnCounters = new Dictionary<CombatCharacter, int>();
@@ -80,6 +138,9 @@ namespace RPG.Combat
             queuedUltimates.Clear();
             passiveTurnCounters.Clear();
             isExecutingUltimateInterrupt = false;
+            sharedEnergy = UnityEngine.Random.Range(30f, 50f);
+            cameraFollowTarget = null;
+            cameraFollowVelocity = Vector3.zero;
 
             // Khởi tạo hàng chờ và các sự kiện của nhân vật
             List<CombatCharacter> allChars = new List<CombatCharacter>();
@@ -360,220 +421,59 @@ namespace RPG.Combat
                 targetPos /= targets.Count;
             }
 
+            if (cameraMoveCoroutine != null)
+            {
+                StopCoroutine(cameraMoveCoroutine);
+                cameraMoveCoroutine = null;
+            }
+            cameraFollowTarget = attacker;
+
             // Gọi chuyển động tấn công và phát hoạt ảnh Animator
             attacker.PlayAttackAnimation(targetPos, skill, 
                 // Khi chạm mục tiêu (Impact)
                 () => {
-                    bool spawnedCustomVFX = false;
-
-                    // Lấy VFX trực tiếp từ kỹ năng (SkillData)
-                    GameObject customVFXPrefab = skill != null ? skill.skillImpactVFX : null;
-
-                    if (customVFXPrefab != null)
+                    // Check if QTE should be triggered (Enemy attacking Allies)
+                    if (!attacker.isAlly && targets.Exists(t => t.isAlly && !t.isDead) && UIManager.Instance != null)
                     {
-                        foreach (var target in targets)
-                        {
-                            if (target.isDead) continue;
-                            GameObject vfx = Instantiate(customVFXPrefab, target.transform.position, Quaternion.identity);
-                            // Tự hủy sau 3 giây để tránh rác bộ nhớ
-                            Destroy(vfx, 3f);
-                        }
-                        spawnedCustomVFX = true;
+                        CombatCharacter primaryTarget = targets.Find(t => t.isAlly && !t.isDead);
+                        attacker.isWaitingForQTE = true;
+
+                        // Freeze enemy animation
+                        Animator enemyAnim = attacker.GetComponentInChildren<Animator>();
+                        float originalSpeed = enemyAnim != null ? enemyAnim.speed : 1f;
+                        if (enemyAnim != null) enemyAnim.speed = 0f;
+
+                        // Start Parry QTE
+                        UIManager.Instance.StartParryQTE(primaryTarget, attacker, (bool success) => {
+                            // Resume enemy speed
+                            if (enemyAnim != null) enemyAnim.speed = originalSpeed;
+
+                            if (success)
+                            {
+                                // Counter Attack!
+                                StartCoroutine(CoExecuteCounterAttack(primaryTarget, attacker, () => {
+                                    attacker.isWaitingForQTE = false;
+                                }));
+                            }
+                            else
+                            {
+                                // Parry failed: Apply boosted damage
+                                ApplyEnemyDamage(attacker, targets, skill, targetPos, true);
+                                attacker.isWaitingForQTE = false;
+                            }
+                        });
                     }
-
-                    if (!spawnedCustomVFX)
+                    else
                     {
-                        // Tạo hiệu ứng hạt mặc định
-                        ProceduralVFX.Instance.SpawnVFX(skill, targetPos);
-                    }
-
-                    // Kiểm tra trạng thái nâng cấp kỹ năng
-                    EnhancedSkillResult enhancement = null;
-                    if (RecollectionManager.Instance != null && RecollectionManager.Instance.IsRecollectionActive && attacker.isAlly && !attacker.isCommander)
-                    {
-                        enhancement = SkillEnhancementResolver.Resolve(
-                            RecollectionManager.Instance.activeCommander.characterData.element,
-                            attacker.characterData.element,
-                            skill.skillType
-                        );
-                    }
-
-                    // Giải quyết sát thương và buff lên từng mục tiêu
-                    foreach (var target in targets)
-                    {
-                        if (target.isDead) continue;
-
-                        // Tính sát thương
-                        bool isCrit;
-                        float damage = DamageCalculator.Calculate(attacker, target, skill, weaknessDatabase, out isCrit);
-
-                        // Ép chí mạng nếu Chỉ Huy là Vanguard (truyền Crit Surge trong 3 lượt đầu)
-                        if (RecollectionManager.Instance != null && RecollectionManager.Instance.IsRecollectionActive && attacker.isAlly)
-                        {
-                            if (RecollectionManager.Instance.activeCommander.characterData.role == CharacterRole.VANGUARD && 
-                                RecollectionManager.Instance.turnsRemaining >= 3)
-                            {
-                                if (!isCrit)
-                                {
-                                    damage = damage * attacker.GetModifiedCritDMG();
-                                    isCrit = true;
-                                }
-                            }
-                        }
-
-                        // Cường hóa sát thương
-                        if (enhancement != null)
-                        {
-                            damage *= (1f + enhancement.damageMultiplierBonus);
-
-                            if (enhancement.specialCondition == "DAMAGE_VS_BURN" && target.activeEffects.Exists(e => e.data.effectType == EffectType.BURN))
-                            {
-                                damage *= 1.40f;
-                            }
-                            else if (enhancement.specialCondition == "FREEZE_BURN_EXPLOSION" && target.IsFrozen())
-                            {
-                                damage += damage * 0.50f;
-                                isCrit = true;
-                                target.activeEffects.RemoveAll(e => e.data.effectType == EffectType.FREEZE);
-                                FloatingText.Instance.SpawnText(target.transform.position + Vector3.up * 2.2f, "CRYO-MELT EXPLOSION!", Color.red, 1.3f);
-                            }
-                            else if (enhancement.specialCondition == "CRYO_SHOCK_LIGHTNING" && target.IsFrozen())
-                            {
-                                damage *= 1.50f;
-                                FloatingText.Instance.SpawnText(target.transform.position + Vector3.up * 2.2f, "CRYO SHOCK!", Color.cyan, 1.3f);
-                            }
-                            else if (enhancement.specialCondition == "THUNDER_BURST_FREEZE" && target.IsFrozen())
-                            {
-                                damage *= 2.0f;
-                                FloatingText.Instance.SpawnText(target.transform.position + Vector3.up * 2.2f, "THUNDER BURST!", Color.yellow, 1.5f);
-                            }
-                        }
-
-                        // Gây sát thương
-                        target.TakeDamage(damage, attacker.characterData.element, attacker, isCrit);
-
-                        // Hồi máu hút máu (Lifesteal) từ Warden role hoặc Nature Chỉ Huy
-                        float lifesteal = 0f;
-                        if (RecollectionManager.Instance != null && RecollectionManager.Instance.IsRecollectionActive && attacker.isAlly)
-                        {
-                            if (RecollectionManager.Instance.activeCommander.characterData.role == CharacterRole.WARDEN)
-                            {
-                                lifesteal += 0.20f;
-                            }
-                            if (enhancement != null && enhancement.specialCondition == "OVERGROWTH_LIFESTEAL" && target.activeEffects.Exists(e => e.data.effectType == EffectType.BURN))
-                            {
-                                lifesteal += 0.30f;
-                            }
-                        }
-
-                        if (lifesteal > 0f)
-                        {
-                            float healAmt = damage * lifesteal;
-                            attacker.Heal(healAmt);
-                            FloatingText.Instance.SpawnText(attacker.transform.position + Vector3.up * 1.5f, $"+{healAmt:F0} HP (Hút máu)", Color.green, 1.0f);
-                        }
-
-                        // Nổi số sát thương
-                        Color numberColor = GetElementColor(attacker.characterData.element);
-                        string damageText = damage.ToString("F0");
-                        if (isCrit)
-                        {
-                            damageText += "!";
-                        }
-                        FloatingText.Instance.SpawnText(target.transform.position + Vector3.up * 1.5f, damageText, numberColor, isCrit ? 1.5f : 1.0f);
-
-                        // Áp dụng hiệu ứng buff/debuff đi kèm của skill
-                        foreach (var effect in skill.effects)
-                        {
-                            EffectManager.Instance.ApplyEffect(attacker, target, effect);
-                        }
-
-                        // Áp dụng hiệu ứng cường hóa bổ sung
-                        if (enhancement != null)
-                        {
-                            foreach (var effect in enhancement.additionalEffects)
-                            {
-                                EffectManager.Instance.ApplyEffect(attacker, target, effect);
-                            }
-
-                            // Xử lý các logic đặc biệt bổ sung (AoE nổ lan)
-                            if (enhancement.specialCondition == "STEAM_BURST_AOE" && target.IsFrozen())
-                            {
-                                float steamDmg = Mathf.Round(target.maxHP * enhancement.specialValue);
-                                foreach (var enemy in GetAliveEnemies())
-                                {
-                                    enemy.TakeDamage(steamDmg, ElementType.Fire, attacker, false);
-                                    FloatingText.Instance.SpawnText(enemy.transform.position + Vector3.up * 1.5f, $"{steamDmg} (Steam Burst!)", Color.red, 1.2f);
-                                }
-                                target.activeEffects.RemoveAll(e => e.data.effectType == EffectType.FREEZE);
-                            }
-                            else if (enhancement.specialCondition == "CHILL_EXTINGUISH" && target.activeEffects.Exists(e => e.data.effectType == EffectType.BURN))
-                            {
-                                float steamDmg = Mathf.Round(attacker.GetModifiedATK() * 0.5f);
-                                foreach (var enemy in GetAliveEnemies())
-                                {
-                                    enemy.TakeDamage(steamDmg, ElementType.Fire, attacker, false);
-                                    FloatingText.Instance.SpawnText(enemy.transform.position + Vector3.up * 1.5f, $"{steamDmg} (Steam Burst!)", Color.cyan, 1.2f);
-                                }
-                                target.activeEffects.RemoveAll(e => e.data.effectType == EffectType.BURN);
-                            }
-                            else if (enhancement.specialCondition == "ICE_MIST_FREEZE" && UnityEngine.Random.value < enhancement.specialValue)
-                            {
-                                EffectData freezeEff = ScriptableObject.CreateInstance<EffectData>();
-                                freezeEff.effectId = "freeze_mist";
-                                freezeEff.effectName = "Ice Mist Freeze";
-                                freezeEff.effectType = EffectType.FREEZE;
-                                freezeEff.duration = 1;
-                                freezeEff.effectColor = Color.cyan;
-                                EffectManager.Instance.ApplyEffect(attacker, target, freezeEff);
-                            }
-                            else if (enhancement.specialCondition == "THUNDER_BURST_FREEZE" && UnityEngine.Random.value < enhancement.specialValue)
-                            {
-                                EffectData freezeEff = ScriptableObject.CreateInstance<EffectData>();
-                                freezeEff.effectId = "freeze_thunder";
-                                freezeEff.effectName = "Thunder Freeze";
-                                freezeEff.effectType = EffectType.FREEZE;
-                                freezeEff.duration = 1;
-                                freezeEff.effectColor = Color.cyan;
-                                EffectManager.Instance.ApplyEffect(attacker, target, freezeEff);
-                            }
-                            else if (enhancement.specialCondition == "SPORE_CLOUD_AOE_POISON" && target.IsFrozen())
-                            {
-                                EffectData poisonEff = ScriptableObject.CreateInstance<EffectData>();
-                                poisonEff.effectId = "poison_spore";
-                                poisonEff.effectName = "Spore Poison";
-                                poisonEff.effectType = EffectType.POISON;
-                                poisonEff.modifierValue = 0.15f;
-                                poisonEff.duration = 2;
-                                poisonEff.effectColor = Color.green;
-
-                                foreach (var enemy in GetAliveEnemies())
-                                {
-                                    if (enemy != target)
-                                    {
-                                        EffectManager.Instance.ApplyEffect(attacker, enemy, poisonEff);
-                                    }
-                                }
-                            }
-                        }
-
-                        // Crit Kill tích thêm +18 Gauge
-                        if (target.isDead && isCrit)
-                        {
-                            attacker.AddRecollectionGauge(18f);
-                            FloatingText.Instance.SpawnText(attacker.transform.position + Vector3.up * 1.5f, "Crit Kill +18!", Color.magenta, 1.2f);
-                        }
-
-                        OnDamageDealt?.Invoke(target, damage, isCrit);
-                    }
-
-                    if (UIManager.Instance != null)
-                    {
-                        UIManager.Instance.UpdateEnemyTargetsHUD();
+                        // Normal attack
+                        ApplyEnemyDamage(attacker, targets, skill, targetPos, false);
                     }
                 }, 
                 // Khi hoàn thành quay về chỗ cũ
                 () => {
+                    cameraFollowTarget = null;
+                    MoveCamera(defaultCameraPos, defaultCameraRot, 0.5f);
+
                     if (UIManager.Instance != null)
                     {
                         UIManager.Instance.HideEnemyTargetHUD();
@@ -890,6 +790,267 @@ namespace RPG.Combat
             mainCam.transform.position = targetPos;
             mainCam.transform.rotation = targetRot;
             cameraMoveCoroutine = null;
+        }
+
+        #endregion
+
+        #region Parry QTE & Counter-Attack & Shared Ultimate Implementation
+
+        public void ApplyEnemyDamage(CombatCharacter attacker, List<CombatCharacter> targets, SkillData skill, Vector3 targetPos, bool failedParry)
+        {
+            bool spawnedCustomVFX = false;
+            GameObject customVFXPrefab = skill != null ? skill.skillImpactVFX : null;
+
+            if (customVFXPrefab != null)
+            {
+                foreach (var target in targets)
+                {
+                    if (target.isDead) continue;
+                    GameObject vfx = Instantiate(customVFXPrefab, target.transform.position, Quaternion.identity);
+                    Destroy(vfx, 3f);
+                }
+                spawnedCustomVFX = true;
+            }
+
+            if (!spawnedCustomVFX)
+            {
+                ProceduralVFX.Instance.SpawnVFX(skill, targetPos);
+            }
+
+            EnhancedSkillResult enhancement = null;
+            if (RecollectionManager.Instance != null && RecollectionManager.Instance.IsRecollectionActive && attacker.isAlly)
+            {
+                enhancement = SkillEnhancementResolver.Resolve(
+                    RecollectionManager.Instance.activeCommander.characterData.element,
+                    attacker.characterData.element,
+                    skill.skillType
+                );
+            }
+
+            foreach (var target in targets)
+            {
+                if (target.isDead) continue;
+
+                bool isCrit;
+                float damage = DamageCalculator.Calculate(attacker, target, skill, weaknessDatabase, out isCrit);
+
+                if (failedParry && target.isAlly)
+                {
+                    float weaknessMultiplier = weaknessDatabase.GetMultiplier(attacker.characterData.element, target.characterData.element);
+                    float parryMultiplier = (weaknessMultiplier > 1.0f) ? 2.0f : 1.5f;
+                    damage *= parryMultiplier;
+                    FloatingText.Instance.SpawnText(target.transform.position + Vector3.up * 2.2f, "PARRY FAILED!", Color.red, 1.5f);
+                }
+
+                if (enhancement != null)
+                {
+                    damage *= (1f + enhancement.damageMultiplierBonus);
+
+                    if (enhancement.specialCondition == "DAMAGE_VS_BURN" && target.activeEffects.Exists(e => e.data.effectType == EffectType.BURN))
+                    {
+                        damage *= 1.40f;
+                    }
+                    else if (enhancement.specialCondition == "FREEZE_BURN_EXPLOSION" && target.IsFrozen())
+                    {
+                        damage += damage * 0.50f;
+                        isCrit = true;
+                        target.activeEffects.RemoveAll(e => e.data.effectType == EffectType.FREEZE);
+                        FloatingText.Instance.SpawnText(target.transform.position + Vector3.up * 2.2f, "CRYO-MELT EXPLOSION!", Color.red, 1.3f);
+                    }
+                    else if (enhancement.specialCondition == "CRYO_SHOCK_LIGHTNING" && target.IsFrozen())
+                    {
+                        damage *= 1.50f;
+                        FloatingText.Instance.SpawnText(target.transform.position + Vector3.up * 2.2f, "CRYO SHOCK!", Color.cyan, 1.3f);
+                    }
+                    else if (enhancement.specialCondition == "THUNDER_BURST_FREEZE" && target.IsFrozen())
+                    {
+                        damage *= 2.0f;
+                        FloatingText.Instance.SpawnText(target.transform.position + Vector3.up * 2.2f, "THUNDER BURST!", Color.yellow, 1.5f);
+                    }
+                }
+
+                target.TakeDamage(damage, attacker.characterData.element, attacker, isCrit);
+
+                float lifesteal = 0f;
+                if (RecollectionManager.Instance != null && RecollectionManager.Instance.IsRecollectionActive && attacker.isAlly)
+                {
+                    if (RecollectionManager.Instance.activeCommander.characterData.role == CharacterRole.WARDEN)
+                    {
+                        lifesteal += 0.20f;
+                    }
+                    if (enhancement != null && enhancement.specialCondition == "OVERGROWTH_LIFESTEAL" && target.activeEffects.Exists(e => e.data.effectType == EffectType.BURN))
+                    {
+                        lifesteal += 0.30f;
+                    }
+                }
+
+                if (lifesteal > 0f)
+                {
+                    float healAmt = damage * lifesteal;
+                    attacker.Heal(healAmt);
+                    FloatingText.Instance.SpawnText(attacker.transform.position + Vector3.up * 1.5f, $"+{healAmt:F0} HP (Hút máu)", Color.green, 1.0f);
+                }
+
+                Color numberColor = GetElementColor(attacker.characterData.element);
+                string damageText = damage.ToString("F0");
+                if (isCrit)
+                {
+                    damageText += "!";
+                }
+                FloatingText.Instance.SpawnText(target.transform.position + Vector3.up * 1.5f, damageText, numberColor, isCrit ? 1.5f : 1.0f);
+
+                foreach (var effect in skill.effects)
+                {
+                    EffectManager.Instance.ApplyEffect(attacker, target, effect);
+                }
+
+                if (enhancement != null)
+                {
+                    foreach (var effect in enhancement.additionalEffects)
+                    {
+                        EffectManager.Instance.ApplyEffect(attacker, target, effect);
+                    }
+
+                    if (enhancement.specialCondition == "STEAM_BURST_AOE" && target.IsFrozen())
+                    {
+                        float steamDmg = Mathf.Round(target.maxHP * enhancement.specialValue);
+                        foreach (var enemy in GetAliveEnemies())
+                        {
+                            enemy.TakeDamage(steamDmg, ElementType.Fire, attacker, false);
+                            FloatingText.Instance.SpawnText(enemy.transform.position + Vector3.up * 1.5f, $"{steamDmg} (Steam Burst!)", Color.red, 1.2f);
+                        }
+                        target.activeEffects.RemoveAll(e => e.data.effectType == EffectType.FREEZE);
+                    }
+                    else if (enhancement.specialCondition == "CHILL_EXTINGUISH" && target.activeEffects.Exists(e => e.data.effectType == EffectType.BURN))
+                    {
+                        float steamDmg = Mathf.Round(attacker.GetModifiedATK() * 0.5f);
+                        foreach (var enemy in GetAliveEnemies())
+                        {
+                            enemy.TakeDamage(steamDmg, ElementType.Fire, attacker, false);
+                            FloatingText.Instance.SpawnText(enemy.transform.position + Vector3.up * 1.5f, $"{steamDmg} (Steam Burst!)", Color.cyan, 1.2f);
+                        }
+                        target.activeEffects.RemoveAll(e => e.data.effectType == EffectType.BURN);
+                    }
+                    else if (enhancement.specialCondition == "ICE_MIST_FREEZE" && UnityEngine.Random.value < enhancement.specialValue)
+                    {
+                        EffectData freezeEff = ScriptableObject.CreateInstance<EffectData>();
+                        freezeEff.effectId = "freeze_mist";
+                        freezeEff.effectName = "Ice Mist Freeze";
+                        freezeEff.effectType = EffectType.FREEZE;
+                        freezeEff.duration = 1;
+                        freezeEff.effectColor = Color.cyan;
+                        EffectManager.Instance.ApplyEffect(attacker, target, freezeEff);
+                    }
+                    else if (enhancement.specialCondition == "THUNDER_BURST_FREEZE" && UnityEngine.Random.value < enhancement.specialValue)
+                    {
+                        EffectData freezeEff = ScriptableObject.CreateInstance<EffectData>();
+                        freezeEff.effectId = "freeze_thunder";
+                        freezeEff.effectName = "Thunder Freeze";
+                        freezeEff.effectType = EffectType.FREEZE;
+                        freezeEff.duration = 1;
+                        freezeEff.effectColor = Color.cyan;
+                        EffectManager.Instance.ApplyEffect(attacker, target, freezeEff);
+                    }
+                    else if (enhancement.specialCondition == "SPORE_CLOUD_AOE_POISON" && target.IsFrozen())
+                    {
+                        EffectData poisonEff = ScriptableObject.CreateInstance<EffectData>();
+                        poisonEff.effectId = "poison_spore";
+                        poisonEff.effectName = "Spore Poison";
+                        poisonEff.effectType = EffectType.POISON;
+                        poisonEff.modifierValue = 0.15f;
+                        poisonEff.duration = 2;
+                        poisonEff.effectColor = Color.green;
+
+                        foreach (var enemy in GetAliveEnemies())
+                        {
+                            if (enemy != target)
+                            {
+                                EffectManager.Instance.ApplyEffect(attacker, enemy, poisonEff);
+                            }
+                        }
+                    }
+                }
+
+                if (target.isDead && isCrit && attacker.isAlly)
+                {
+                    attacker.AddRecollectionGauge(18f);
+                    FloatingText.Instance.SpawnText(attacker.transform.position + Vector3.up * 1.5f, "Crit Kill +18!", Color.magenta, 1.2f);
+                }
+
+                OnDamageDealt?.Invoke(target, damage, isCrit);
+            }
+
+            if (UIManager.Instance != null)
+            {
+                UIManager.Instance.UpdateEnemyTargetsHUD();
+            }
+        }
+
+        private IEnumerator CoExecuteCounterAttack(CombatCharacter ally, CombatCharacter enemy, Action onComplete)
+        {
+            FloatingText.Instance.SpawnText(ally.transform.position + Vector3.up * 2f, "PARRY SUCCESS!", Color.green, 1.5f);
+            yield return new WaitForSeconds(0.3f);
+            
+            FloatingText.Instance.SpawnText(ally.transform.position + Vector3.up * 1.5f, "COUNTER ATTACK!", Color.yellow, 1.3f);
+
+            if (cameraMoveCoroutine != null)
+            {
+                StopCoroutine(cameraMoveCoroutine);
+                cameraMoveCoroutine = null;
+            }
+            cameraFollowTarget = ally;
+
+            bool counterComplete = false;
+            ally.PlayAttackAnimation(enemy.transform.position, ally.characterData.skillBasic, 
+                // Impact callback
+                () => {
+                    bool isCrit;
+                    float damage = DamageCalculator.Calculate(ally, enemy, ally.characterData.skillBasic, weaknessDatabase, out isCrit);
+                    enemy.TakeDamage(damage, ally.characterData.element, ally, isCrit);
+
+                    Color numberColor = GetElementColor(ally.characterData.element);
+                    string damageText = damage.ToString("F0");
+                    if (isCrit) damageText += "!";
+                    FloatingText.Instance.SpawnText(enemy.transform.position + Vector3.up * 1.5f, damageText, numberColor, isCrit ? 1.5f : 1.0f);
+                    
+                    ProceduralVFX.Instance.SpawnVFX(ally.characterData.skillBasic, enemy.transform.position);
+                },
+                // Completion callback
+                () => {
+                    cameraFollowTarget = null;
+                    MoveCamera(defaultCameraPos, defaultCameraRot, 0.5f);
+                    counterComplete = true;
+                }
+            );
+
+            while (!counterComplete)
+            {
+                yield return null;
+            }
+
+            onComplete?.Invoke();
+        }
+
+        public void RequestSharedUltimateCast(CombatCharacter character)
+        {
+            if (character.isDead || sharedEnergy < 100f) return;
+
+            if (queuedUltimates.Contains(character)) return;
+
+            queuedUltimates.Enqueue(character);
+            Debug.Log($"[CombatManager] Đã xếp hàng chờ Ultimate dùng chung cho: {character.characterData.characterName}");
+
+            FloatingText.Instance.SpawnText(character.transform.position + Vector3.up * 2f, "ULTIMATE READY!", Color.yellow, 1.3f);
+
+            if (UIManager.Instance != null)
+            {
+                UIManager.Instance.UpdateSharedUltimateBar();
+            }
+
+            if (currentState == CombatState.PLAYERTURN)
+            {
+                StartCoroutine(CoExecuteQueuedUltimate());
+            }
         }
 
         #endregion

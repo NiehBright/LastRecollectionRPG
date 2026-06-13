@@ -36,8 +36,8 @@ namespace RPG.Combat
             scaler.dynamicPixelsPerUnit = 10f;
 
             RectTransform rect = canvas.GetComponent<RectTransform>();
-            rect.sizeDelta = new Vector2(100f, 30f);
-            rect.localScale = new Vector3(0.006f, 0.006f, 0.006f); // Nhỏ gọn hơn (100 pixel = 0.6 mét)
+            rect.sizeDelta = new Vector2(300f, 80f);
+            rect.localScale = new Vector3(0.025f, 0.025f, 0.025f); // Expanded scale for high visibility
             rect.localPosition = Vector3.zero;
             rect.localRotation = Quaternion.identity;
 
@@ -60,14 +60,15 @@ namespace RPG.Combat
             Text uiText = subTextGO.AddComponent<Text>();
             uiText.text = text;
             uiText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            uiText.fontSize = (int)(10 * scale); // Giảm kích thước chữ gốc xuống 10
+            uiText.fontSize = (int)(48 * scale); // Increased font size for dramatic impact
+            uiText.fontStyle = FontStyle.Bold;
             uiText.alignment = TextAnchor.MiddleCenter;
             uiText.color = color;
 
             // Thêm hiệu ứng Outline viền đen cho chữ rõ ràng hơn
             Outline outline = subTextGO.AddComponent<Outline>();
             outline.effectColor = Color.black;
-            outline.effectDistance = new Vector2(1f, -1f);
+            outline.effectDistance = new Vector2(3f, -3f);
 
             // Chạy Coroutine bay lên và mờ dần
             StartCoroutine(CoAnimateFloatingText(textGO, uiText, outline));
