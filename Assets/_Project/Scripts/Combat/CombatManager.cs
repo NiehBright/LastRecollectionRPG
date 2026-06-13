@@ -426,7 +426,14 @@ namespace RPG.Combat
                 StopCoroutine(cameraMoveCoroutine);
                 cameraMoveCoroutine = null;
             }
-            cameraFollowTarget = attacker;
+            if (attacker.isAlly)
+            {
+                cameraFollowTarget = attacker;
+            }
+            else
+            {
+                cameraFollowTarget = null;
+            }
 
             // Gọi chuyển động tấn công và phát hoạt ảnh Animator
             attacker.PlayAttackAnimation(targetPos, skill, 
