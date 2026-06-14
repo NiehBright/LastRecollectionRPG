@@ -19,14 +19,14 @@ MonoBehaviour:
   skillType: 1
   cooldown: 0
   damageMultiplier: 1
-  targetType: 1
+  targetType: 0
   energyCost: 0
   energyGenerated: 10
   effects: []
   skillColor: {r: 1, g: 1, b: 1, a: 1}
   rangeType: 1
   rangedVfxType: 1
-  projectileVFX: {fileID: 0}
+  projectileVFX: {fileID: 1012013889074000, guid: 6dc968b09945e3845bdbf41de444f21c, type: 3}
   animDuration: 1
   skillClip: {fileID: 1827226128182048838, guid: b43697aefc1215e4789b414ff18d40fe, type: 3}
-  skillImpactVFX: {fileID: 3806039598199004532, guid: bd1386d4ee3726342be61ab90aefa917, type: 3}
+  skillImpactVFX: {fileID: 0}

@@ -29,4 +29,4 @@ MonoBehaviour:
   projectileVFX: {fileID: 0}
   animDuration: 1
   skillClip: {fileID: 1827226128182048838, guid: 44e03b4eb90ea3d44966bc265dfb5f73, type: 3}
-  skillImpactVFX: {fileID: 5994169781622799023, guid: 3fd4f4a70252fe940aa09834467733bf, type: 3}
+  skillImpactVFX: {fileID: 1168529248583268, guid: 76d29242e44bd1d4481337c8f53681ac, type: 3}

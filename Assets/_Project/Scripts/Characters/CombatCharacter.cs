@@ -910,15 +910,27 @@ namespace RPG.Combat
 
             // Xác định thời lượng clip hoạt ảnh thực tế
             float animLength = 0.5f; // Fallback mặc định
-            if (anim != null)
+            if (skill != null && skill.skillClip != null)
             {
-                var stateInfo = anim.GetCurrentAnimatorStateInfo(0);
-                animLength = stateInfo.length;
+                animLength = skill.skillClip.length;
+            }
+            else if (anim != null)
+            {
+                if (anim.IsInTransition(0))
+                {
+                    var nextInfo = anim.GetNextAnimatorStateInfo(0);
+                    animLength = nextInfo.length > 0f ? nextInfo.length : 0.5f;
+                }
+                else
+                {
+                    var currInfo = anim.GetCurrentAnimatorStateInfo(0);
+                    animLength = currInfo.length > 0f ? currInfo.length : 0.5f;
+                }
             }
 
             // Chờ nhận sự kiện OnAttackHit từ AnimationEventReceiver hoặc tự động kích hoạt sau một thời gian
             float elapsedWait = 0f;
-            float hitThreshold = animLength * 0.5f; // Gây sát thương ở 50% thời lượng nếu không có event
+            float hitThreshold = Mathf.Min(animLength * 0.5f, 0.5f); // Gây sát thương ở tối đa 0.5 giây nếu không có event
             
             while (!hasReceivedHitEvent && elapsedWait < animLength)
             {

@@ -27,6 +27,7 @@ namespace RPG.Combat
         public Color skillColor = Color.white;
         public SkillRangeType rangeType = SkillRangeType.MELEE;
         public RangedVfxType rangedVfxType = RangedVfxType.SPAWN_AT_TARGET;
+        public AoeVfxSpawnMode aoeVfxSpawnMode = AoeVfxSpawnMode.SPAWN_ON_EACH_TARGET;
         public GameObject projectileVFX;
         public float animDuration = 1.0f; // Thời gian chuyển động tấn công
         public AnimationClip skillClip; // Clip hoạt ảnh tương ứng với kỹ năng này

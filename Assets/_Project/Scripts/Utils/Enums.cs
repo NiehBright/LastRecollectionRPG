@@ -62,4 +62,10 @@ namespace RPG.Combat
         SPAWN_AT_TARGET,
         PROJECTILE
     }
+
+    public enum AoeVfxSpawnMode
+    {
+        SPAWN_ON_EACH_TARGET, // Xuất hiện dưới chân từng con
+        SPAWN_ONE_AT_CENTER    // Xuất hiện 1 cái ở giữa/trung tâm
+    }
 }
