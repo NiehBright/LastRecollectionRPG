@@ -25,6 +25,9 @@ MonoBehaviour:
   energyGenerated: 15
   effects: []
   skillColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  rangeType: 0
+  rangedVfxType: 0
+  projectileVFX: {fileID: 0}
   animDuration: 1
   skillClip: {fileID: 4189676145174806922, guid: fc1c79643abed12489ff86dbb5e92898, type: 3}
-  skillImpactVFX: {fileID: 0}
+  skillImpactVFX: {fileID: 1269619656826376, guid: 5c734c7bc14483a4d9b880211468f63d, type: 3}

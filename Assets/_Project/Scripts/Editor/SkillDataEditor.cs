@@ -31,11 +31,11 @@ namespace RPG.Combat
 
             // Draw fields manually to group them exactly as headers in SkillData.cs
             EditorGUILayout.LabelField("Thông tin cơ bản", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(skillId);
-            EditorGUILayout.PropertyField(skillName);
-            EditorGUILayout.PropertyField(description);
-            EditorGUILayout.PropertyField(skillType);
-            EditorGUILayout.PropertyField(rangeType);
+            EditorGUILayout.PropertyField(skillId, new GUIContent("Mã kỹ năng (ID)"));
+            EditorGUILayout.PropertyField(skillName, new GUIContent("Tên kỹ năng"));
+            EditorGUILayout.PropertyField(description, new GUIContent("Mô tả chi tiết"));
+            EditorGUILayout.PropertyField(skillType, new GUIContent("Loại kỹ năng"));
+            EditorGUILayout.PropertyField(rangeType, new GUIContent("Cự ly tấn công"));
 
             // Conditional drawing for Ranged fields
             if (rangeType != null && rangeType.enumValueIndex == (int)SkillRangeType.RANGED)
@@ -43,11 +43,11 @@ namespace RPG.Combat
                 EditorGUI.indentLevel++;
                 if (rangedVfxType != null)
                 {
-                    EditorGUILayout.PropertyField(rangedVfxType);
+                    EditorGUILayout.PropertyField(rangedVfxType, new GUIContent("Kiểu VFX đánh xa"));
                     if (rangedVfxType.enumValueIndex == (int)RangedVfxType.PROJECTILE && projectileVFX != null)
                     {
                         EditorGUI.indentLevel++;
-                        EditorGUILayout.PropertyField(projectileVFX);
+                        EditorGUILayout.PropertyField(projectileVFX, new GUIContent("Prefab đạn bay"));
                         EditorGUI.indentLevel--;
                     }
                 }
@@ -56,22 +56,35 @@ namespace RPG.Combat
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Chỉ số chiến đấu", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(cooldown);
-            EditorGUILayout.PropertyField(damageMultiplier);
-            EditorGUILayout.PropertyField(targetType);
-            EditorGUILayout.PropertyField(energyCost);
-            EditorGUILayout.PropertyField(energyGenerated);
+            EditorGUILayout.PropertyField(cooldown, new GUIContent("Số lượt hồi chiêu (Cooldown)"));
+            EditorGUILayout.PropertyField(damageMultiplier, new GUIContent("Hệ số sát thương"));
+            EditorGUILayout.PropertyField(targetType, new GUIContent("Mục tiêu nhắm tới"));
+            EditorGUILayout.PropertyField(energyCost, new GUIContent("Năng lượng tiêu tốn"));
+            EditorGUILayout.PropertyField(energyGenerated, new GUIContent("Năng lượng hồi lại"));
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Hiệu ứng đi kèm", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(effects, true);
+            EditorGUILayout.PropertyField(effects, new GUIContent("Danh sách hiệu ứng"), true);
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Visual & Hiệu ứng hình ảnh", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(skillColor);
-            EditorGUILayout.PropertyField(animDuration);
-            EditorGUILayout.PropertyField(skillClip);
-            EditorGUILayout.PropertyField(skillImpactVFX);
+            EditorGUILayout.PropertyField(skillColor, new GUIContent("Màu sắc chủ đạo"));
+            EditorGUILayout.PropertyField(animDuration, new GUIContent("Thời gian hoạt ảnh (giây)"));
+            EditorGUILayout.PropertyField(skillClip, new GUIContent("Clip hoạt ảnh tấn công"));
+            EditorGUILayout.PropertyField(skillImpactVFX, new GUIContent("Prefab VFX khi trúng đòn"));
+
+            // Vẽ trường aoeVfxSpawnMode bằng tiếng Việt trực quan
+            SerializedProperty aoeVfxSpawnModeProp = serializedObject.FindProperty("aoeVfxSpawnMode");
+            if (aoeVfxSpawnModeProp != null)
+            {
+                string[] displayNames = new string[] {
+                    "Xuất hiện dưới chân từng mục tiêu",
+                    "Xuất hiện 1 cái ở giữa trung tâm"
+                };
+                int selectedIndex = aoeVfxSpawnModeProp.enumValueIndex;
+                selectedIndex = EditorGUILayout.Popup("Chế độ xuất hiện VFX (AOE)", selectedIndex, displayNames);
+                aoeVfxSpawnModeProp.enumValueIndex = selectedIndex;
+            }
 
             serializedObject.ApplyModifiedProperties();
         }

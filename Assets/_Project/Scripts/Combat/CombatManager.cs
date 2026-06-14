@@ -805,23 +805,40 @@ namespace RPG.Combat
 
         public void ApplyEnemyDamage(CombatCharacter attacker, List<CombatCharacter> targets, SkillData skill, Vector3 targetPos, bool failedParry)
         {
-            bool spawnedCustomVFX = false;
             GameObject customVFXPrefab = skill != null ? skill.skillImpactVFX : null;
+            bool spawnAtCenter = skill != null && skill.aoeVfxSpawnMode == AoeVfxSpawnMode.SPAWN_ONE_AT_CENTER;
 
             if (customVFXPrefab != null)
             {
-                foreach (var target in targets)
+                if (spawnAtCenter)
                 {
-                    if (target.isDead) continue;
-                    GameObject vfx = Instantiate(customVFXPrefab, target.transform.position, Quaternion.identity);
+                    GameObject vfx = Instantiate(customVFXPrefab, targetPos, Quaternion.identity);
                     Destroy(vfx, 3f);
                 }
-                spawnedCustomVFX = true;
+                else
+                {
+                    foreach (var target in targets)
+                    {
+                        if (target.isDead) continue;
+                        GameObject vfx = Instantiate(customVFXPrefab, target.transform.position, Quaternion.identity);
+                        Destroy(vfx, 3f);
+                    }
+                }
             }
-
-            if (!spawnedCustomVFX)
+            else
             {
-                ProceduralVFX.Instance.SpawnVFX(skill, targetPos);
+                if (spawnAtCenter)
+                {
+                    ProceduralVFX.Instance.SpawnVFX(skill, targetPos);
+                }
+                else
+                {
+                    foreach (var target in targets)
+                    {
+                        if (target.isDead) continue;
+                        ProceduralVFX.Instance.SpawnVFX(skill, target.transform.position);
+                    }
+                }
             }
 
             EnhancedSkillResult enhancement = null;
