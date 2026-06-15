@@ -39,6 +39,11 @@ namespace RPG.Combat
         /// </summary>
         public void SpawnVFX(SkillData skill, Vector3 position)
         {
+            SpawnVFX(skill, position, Quaternion.identity);
+        }
+
+        public void SpawnVFX(SkillData skill, Vector3 position, Quaternion rotation)
+        {
             ElementType element = ElementType.Physical;
             
             // Lấy hệ của skill (ta có thể lấy màu hoặc tự suy diễn thuộc tính dựa trên skillColor)
@@ -50,6 +55,7 @@ namespace RPG.Combat
 
             GameObject vfxGO = new GameObject($"VFX_{skill.skillName}");
             vfxGO.transform.position = position;
+            vfxGO.transform.rotation = rotation;
 
             ParticleSystem ps = vfxGO.AddComponent<ParticleSystem>();
             ps.Stop(); // Dừng hệ thống hạt trước khi cấu hình

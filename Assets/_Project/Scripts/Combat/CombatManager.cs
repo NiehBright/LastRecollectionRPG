@@ -812,7 +812,9 @@ namespace RPG.Combat
             {
                 if (spawnAtCenter)
                 {
-                    GameObject vfx = Instantiate(customVFXPrefab, targetPos, Quaternion.identity);
+                    Vector3 spawnPos = targetPos + Vector3.up * 8.0f; // Spawn ở trên trời (8m)
+                    Quaternion downRot = Quaternion.Euler(90f, 0f, 0f); // Xoay hướng thẳng xuống đất
+                    GameObject vfx = Instantiate(customVFXPrefab, spawnPos, downRot);
                     Destroy(vfx, 3f);
                 }
                 else
@@ -829,7 +831,9 @@ namespace RPG.Combat
             {
                 if (spawnAtCenter)
                 {
-                    ProceduralVFX.Instance.SpawnVFX(skill, targetPos);
+                    Vector3 spawnPos = targetPos + Vector3.up * 8.0f; // Spawn ở trên trời (8m)
+                    Quaternion downRot = Quaternion.Euler(90f, 0f, 0f); // Xoay hướng thẳng xuống đất
+                    ProceduralVFX.Instance.SpawnVFX(skill, spawnPos, downRot);
                 }
                 else
                 {

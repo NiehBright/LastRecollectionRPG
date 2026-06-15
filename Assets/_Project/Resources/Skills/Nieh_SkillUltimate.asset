@@ -24,8 +24,9 @@ MonoBehaviour:
   energyGenerated: 0
   effects: []
   skillColor: {r: 1, g: 0, b: 0, a: 1}
-  rangeType: 0
-  rangedVfxType: 0
+  rangeType: 1
+  rangedVfxType: 1
+  aoeVfxSpawnMode: 1
   projectileVFX: {fileID: 0}
   animDuration: 1
   skillClip: {fileID: 1827226128182048838, guid: 44e03b4eb90ea3d44966bc265dfb5f73, type: 3}
