@@ -574,6 +574,16 @@ namespace RPG.Combat
             CombatCharacter ultChar = queuedUltimates.Dequeue();
             yield return new WaitForSeconds(0.2f);
 
+            // Kiểm tra nhân vật thi triển còn sống hay không
+            if (ultChar == null || ultChar.isDead || !ultChar.gameObject.activeInHierarchy)
+            {
+                Debug.LogWarning($"[CombatManager] Hủy kích hoạt Ultimate do nhân vật đã gục ngã hoặc bị vô hiệu hóa. Hoàn trả năng lượng nộ dùng chung.");
+                AddSharedEnergy(100f);
+                isExecutingUltimateInterrupt = false;
+                NextTurn();
+                yield break;
+            }
+
             // Nổi chữ thi triển chiêu cuối
             FloatingText.Instance.SpawnText(ultChar.transform.position + Vector3.up * 2.5f, "ULTIMATE CUT-IN!", Color.yellow, 1.8f);
             
@@ -1064,6 +1074,8 @@ namespace RPG.Combat
             if (character.isDead || sharedEnergy < 100f) return;
 
             if (queuedUltimates.Contains(character)) return;
+
+            ConsumeSharedEnergy(100f);
 
             queuedUltimates.Enqueue(character);
             Debug.Log($"[CombatManager] Đã xếp hàng chờ Ultimate dùng chung cho: {character.characterData.characterName}");

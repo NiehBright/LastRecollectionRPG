@@ -773,6 +773,15 @@ namespace RPG.Combat
         {
             isDead = true;
             HideTurnVFX();
+            
+            // Invoke pending callbacks if we die in the middle of an action
+            if (pendingCompleteCallback != null)
+            {
+                var callback = pendingCompleteCallback;
+                pendingCompleteCallback = null;
+                callback?.Invoke();
+            }
+            
             OnDeath?.Invoke(this);
             PlayDeathAnimation();
         }
@@ -822,6 +831,7 @@ namespace RPG.Combat
         }
 
         private Action pendingImpactCallback;
+        private Action pendingCompleteCallback;
         private bool hasReceivedHitEvent = false;
 
         public void OnAnimationHitEventReceived()
@@ -837,6 +847,7 @@ namespace RPG.Combat
 
         private IEnumerator CoAttackAnimation(Vector3 targetPosition, SkillData skill, Action onImpact, Action onComplete)
         {
+            pendingCompleteCallback = onComplete;
             Vector3 startPos = originalPosition;
             bool isRanged = skill != null && skill.rangeType == SkillRangeType.RANGED;
             bool isProjectile = isRanged && skill != null && skill.rangedVfxType == RangedVfxType.PROJECTILE && skill.projectileVFX != null;
@@ -1001,7 +1012,12 @@ namespace RPG.Combat
             }
 
             activeAnimCoroutine = null;
-            onComplete?.Invoke();
+            if (pendingCompleteCallback != null)
+            {
+                var callback = pendingCompleteCallback;
+                pendingCompleteCallback = null;
+                callback?.Invoke();
+            }
         }
 
         private IEnumerator CoFlyProjectile(Vector3 startPos, Vector3 targetPos, GameObject projectilePrefab, Action onImpact, Action onArrival)
