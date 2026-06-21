@@ -11,7 +11,7 @@ namespace RPG.Combat
             {
                 if (instance == null)
                 {
-                    instance = FindObjectOfType<ProceduralVFX>();
+                    instance = FindAnyObjectByType<ProceduralVFX>();
                     if (instance == null)
                     {
                         GameObject go = new GameObject("ProceduralVFX_Auto");

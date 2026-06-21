@@ -99,7 +99,7 @@ namespace RPG.Combat
 
             if (progressBarFill != null)
             {
-                progressBarFill.anchorMax = new Vector2(0f, 1f);
+                progressBarFill.rectTransform.anchorMax = new Vector2(0f, 1f);
             }
             if (progressText != null)
             {
@@ -137,7 +137,7 @@ namespace RPG.Combat
                 
                 if (progressBarFill != null)
                 {
-                    progressBarFill.anchorMax = new Vector2(currentProgress, 1f);
+                    progressBarFill.rectTransform.anchorMax = new Vector2(currentProgress, 1f);
                 }
                 if (progressText != null)
                 {
@@ -147,7 +147,7 @@ namespace RPG.Combat
                 if (currentProgress >= 0.999f && op.progress >= 0.9f)
                 {
                     currentProgress = 1.0f;
-                    if (progressBarFill != null) progressBarFill.anchorMax = new Vector2(1f, 1f);
+                    if (progressBarFill != null) progressBarFill.rectTransform.anchorMax = new Vector2(1f, 1f);
                     if (progressText != null) progressText.text = "Hoàn tất! Đang vào game...";
                     break;
                 }
