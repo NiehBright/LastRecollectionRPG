@@ -19,7 +19,7 @@ namespace RPG.Combat
                 return;
             }
 
-            CombatSetup setup = Object.FindFirstObjectByType<CombatSetup>();
+            CombatSetup setup = Object.FindAnyObjectByType<CombatSetup>();
             if (setup != null)
             {
                 // Check if already generated to avoid marking scene dirty and messing up hierarchy selection

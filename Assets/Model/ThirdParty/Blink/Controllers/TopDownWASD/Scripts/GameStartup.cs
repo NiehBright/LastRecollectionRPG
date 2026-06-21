@@ -12,7 +12,7 @@ namespace BLINK.Controller
         private void Awake()
         {
             // Ensure InputManager exists and is initialized
-            var inputMgr = FindObjectOfType<InputManager>();
+            var inputMgr = FindAnyObjectByType<InputManager>();
             if (inputMgr == null)
             {
                 var go = new GameObject("[InputManager]");

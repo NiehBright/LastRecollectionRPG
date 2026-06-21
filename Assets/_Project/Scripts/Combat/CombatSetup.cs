@@ -120,7 +120,7 @@ namespace RPG.Combat
             if (CombatTeamManager.IsEnteringFromOverworld)
             {
                 // Xóa các quái/nhân vật mặc định có sẵn trong Scene đấu trường để tránh bị thừa
-                CombatCharacter[] presetChars = FindObjectsByType<CombatCharacter>(FindObjectsSortMode.None);
+                CombatCharacter[] presetChars = FindObjectsByType<CombatCharacter>(FindObjectsInactive.Exclude);
                 foreach (var pc in presetChars)
                 {
                     Destroy(pc.gameObject);
@@ -219,12 +219,12 @@ namespace RPG.Combat
             else
             {
                 // 1. Quét tìm các CombatCharacter có sẵn trên Hierarchy
-                CombatCharacter[] existingChars = FindObjectsByType<CombatCharacter>(FindObjectsSortMode.None);
+                CombatCharacter[] existingChars = FindObjectsByType<CombatCharacter>(FindObjectsInactive.Exclude);
                 
                 // 2. Tìm thêm các GameObject có tên chứa 'Ally_' hoặc 'Enemy_' nhưng thiếu script để tự động gán
                 if (existingChars == null || existingChars.Length == 0)
                 {
-                    var allGOs = FindObjectsByType<GameObject>(FindObjectsSortMode.None);
+                    var allGOs = FindObjectsByType<GameObject>(FindObjectsInactive.Exclude);
                     List<CombatCharacter> foundList = new List<CombatCharacter>();
                     foreach (var go in allGOs)
                     {

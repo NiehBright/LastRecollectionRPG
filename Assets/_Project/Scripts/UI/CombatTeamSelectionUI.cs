@@ -170,7 +170,7 @@ namespace RPG.Combat
             if (canvasGO != null) Destroy(canvasGO);
 
             // Mở khóa cho người chơi và reset trạng thái chuyển cảnh tấn công
-            var playerControllers = FindObjectsByType<TopDownWASDController>(FindObjectsSortMode.None);
+            var playerControllers = FindObjectsByType<TopDownWASDController>(FindObjectsInactive.Exclude);
             foreach (var pc in playerControllers)
             {
                 if (pc != null)

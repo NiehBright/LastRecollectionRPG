@@ -13,7 +13,7 @@ namespace RPG.Combat
             {
                 // Tìm tất cả EnemyDummy trong scene hiện tại
 #if UNITY_2023_1_OR_NEWER
-                BLINK.Controller.EnemyDummy[] dummies = Object.FindObjectsByType<BLINK.Controller.EnemyDummy>(FindObjectsSortMode.None);
+                BLINK.Controller.EnemyDummy[] dummies = Object.FindObjectsByType<BLINK.Controller.EnemyDummy>(FindObjectsInactive.Exclude);
 #else
                 BLINK.Controller.EnemyDummy[] dummies = (BLINK.Controller.EnemyDummy[])Object.FindObjectsOfType(typeof(BLINK.Controller.EnemyDummy));
 #endif
