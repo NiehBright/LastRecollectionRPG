@@ -966,7 +966,7 @@ namespace RPG.Combat
             if (canvasGO != null) Destroy(canvasGO);
 
             Debug.Log("[CombatTeamSelectionUI] Chuyển cảnh sang TurnBase...");
-            SceneManager.LoadScene("TurnBase");
+            LoadingManager.Instance.LoadScene("TurnBase");
         }
 
         private Color GetElementColor(ElementType type)

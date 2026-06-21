@@ -989,7 +989,8 @@ namespace RPG.Combat
                 {
                     elapsed += Time.deltaTime;
                     float t = elapsed / duration;
-                    transform.position = Vector3.Lerp(strikePos, startPos, t);
+                    float easeT = t * (2f - t); // Ease-out mượt mà khi lùi về vị trí cũ
+                    transform.position = Vector3.Lerp(strikePos, startPos, easeT);
                     yield return null;
                 }
             }

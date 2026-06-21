@@ -1608,11 +1608,11 @@ namespace RPG.Combat
 
             if (CombatTeamManager.IsEnteringFromOverworld)
             {
-                SceneManager.LoadScene("DEMO_WASD");
+                LoadingManager.Instance.LoadScene("DEMO_WASD");
             }
             else
             {
-                SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+                LoadingManager.Instance.LoadScene(SceneManager.GetActiveScene().name);
             }
         }
 
