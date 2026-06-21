@@ -25,7 +25,7 @@ namespace BLINK.Controller
             DontDestroyOnLoad(gameObject);
 
             // Try to find InputActionAsset in scene via PlayerInput
-            var playerInput = FindObjectOfType<PlayerInput>();
+            var playerInput = FindAnyObjectByType<PlayerInput>();
             if (playerInput != null)
             {
                 _inputActionAsset = playerInput.actions;

@@ -62,7 +62,7 @@ namespace RPG.Combat
             if (Instance == null)
             {
 #if UNITY_2023_1_OR_NEWER
-                Instance = FindFirstObjectByType<CharacterMenuManager>();
+                Instance = FindAnyObjectByType<CharacterMenuManager>();
 #else
                 Instance = FindObjectOfType<CharacterMenuManager>();
 #endif
@@ -310,7 +310,7 @@ namespace RPG.Combat
             isMenuOpen = true;
 
             // 1. Tắt di chuyển và camera của TẤT CẢ người chơi/controllers trên scene để tránh di chuyển được bên ngoài
-            var playerControllers = FindObjectsByType<TopDownWASDController>(FindObjectsSortMode.None);
+            var playerControllers = FindObjectsByType<TopDownWASDController>(FindObjectsInactive.Exclude);
             foreach (var pc in playerControllers)
             {
                 if (pc != null)
@@ -376,7 +376,7 @@ namespace RPG.Combat
             }
 
             // 3. Bật lại di chuyển và camera cho TẤT CẢ người chơi trên scene
-            var playerControllers = FindObjectsByType<TopDownWASDController>(FindObjectsSortMode.None);
+            var playerControllers = FindObjectsByType<TopDownWASDController>(FindObjectsInactive.Exclude);
             foreach (var pc in playerControllers)
             {
                 if (pc != null)
@@ -963,13 +963,11 @@ namespace RPG.Combat
 
                     if (anim.runtimeAnimatorController != null && anim.layerCount > 0)
                     {
-                        bool hasIdle = false;
                         for (int i = 0; i < anim.layerCount; i++)
                         {
                             if (anim.HasState(i, Animator.StringToHash("Idle")))
                             {
                                 anim.Play("Idle", i);
-                                hasIdle = true;
                                 break;
                             }
                         }

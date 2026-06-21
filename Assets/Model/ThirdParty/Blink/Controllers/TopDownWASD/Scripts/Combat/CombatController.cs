@@ -58,10 +58,8 @@ namespace BLINK.Controller
         // --- State ---
         int _comboIndex; // 0..3
         bool _isAttacking;
-        bool _comboQueued;
         bool _activeAttackHitConsumed;
         int _activeAttackIndex = -1;
-        float _lastAttackInputTime = -10f;
         Coroutine _attackCoroutine;
         bool _attackActionEnabledByUs;
         public bool _isTransitioning = false;
@@ -194,7 +192,6 @@ namespace BLINK.Controller
 
             Debug.Log("[CombatController] Starting single attack (Honkai Style)");
             _comboIndex = 0;
-            _comboQueued = false;
             StartAttack(0);
         }
 
@@ -212,7 +209,6 @@ namespace BLINK.Controller
             _isAttacking = true;
             _activeAttackIndex = index;
             _activeAttackHitConsumed = false;
-            _comboQueued = false;
 
             // --- Enable Combat layer ---
             if (_combatLayerIndex >= 0)
@@ -369,7 +365,6 @@ namespace BLINK.Controller
         void EndCombo()
         {
             _isAttacking = false;
-            _comboQueued = false;
             _comboIndex = 0;
             _activeAttackIndex = -1;
             _attackCoroutine = null;

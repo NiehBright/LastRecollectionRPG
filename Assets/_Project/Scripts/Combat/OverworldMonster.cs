@@ -16,7 +16,7 @@ namespace RPG.Combat
         [Tooltip("Khoảng cách bắt đầu chạm trán và mở UI chọn nhân vật")]
         public float detectionRadius = 2.2f;
 
-        private bool triggered = false;
+
 
 #if UNITY_EDITOR
         private void OnValidate()

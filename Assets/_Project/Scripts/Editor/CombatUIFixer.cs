@@ -258,6 +258,9 @@ namespace RPG.Combat
             hpFillRect.offsetMin = Vector2.zero;
             hpFillRect.offsetMax = Vector2.zero;
             Image hpFillImg = hpFillGO.AddComponent<Image>();
+            hpFillImg.type = Image.Type.Filled;
+            hpFillImg.fillMethod = Image.FillMethod.Horizontal;
+            hpFillImg.fillOrigin = 0;
             hpFillImg.color = new Color(0.9f, 0.1f, 0.1f);
 
             // HPText
@@ -296,6 +299,9 @@ namespace RPG.Combat
             mpFillRect.offsetMin = Vector2.zero;
             mpFillRect.offsetMax = Vector2.zero;
             Image mpFillImg = mpFillGO.AddComponent<Image>();
+            mpFillImg.type = Image.Type.Filled;
+            mpFillImg.fillMethod = Image.FillMethod.Horizontal;
+            mpFillImg.fillOrigin = 0;
             mpFillImg.color = new Color(0.1f, 0.5f, 0.9f); // Màu xanh dương mana
 
             // MPText
