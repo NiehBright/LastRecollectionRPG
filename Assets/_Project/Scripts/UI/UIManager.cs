@@ -529,6 +529,7 @@ namespace RPG.Combat
             hpFillRect.offsetMin = Vector2.zero;
             hpFillRect.offsetMax = Vector2.zero;
             Image hpFillImg = hpFillGO.AddComponent<Image>();
+            hpFillImg.sprite = GetDefaultWhiteSprite();
             hpFillImg.type = Image.Type.Filled;
             hpFillImg.fillMethod = Image.FillMethod.Horizontal;
             hpFillImg.fillOrigin = 0;
@@ -570,6 +571,7 @@ namespace RPG.Combat
             mpFillRect.offsetMin = Vector2.zero;
             mpFillRect.offsetMax = Vector2.zero;
             Image mpFillImg = mpFillGO.AddComponent<Image>();
+            mpFillImg.sprite = GetDefaultWhiteSprite();
             mpFillImg.type = Image.Type.Filled;
             mpFillImg.fillMethod = Image.FillMethod.Horizontal;
             mpFillImg.fillOrigin = 0;
@@ -1935,6 +1937,7 @@ namespace RPG.Combat
             Image hpFill = cardGO.transform.Find("HPBar_Bg/HPBar_Fill")?.GetComponent<Image>();
             if (hpFill != null)
             {
+                hpFill.sprite = GetDefaultWhiteSprite();
                 hpFill.type = Image.Type.Filled;
                 hpFill.fillMethod = Image.FillMethod.Horizontal;
                 hpFill.fillOrigin = 0;
@@ -1951,6 +1954,7 @@ namespace RPG.Combat
             Image mpFill = cardGO.transform.Find("MPBar_Bg/MPBar_Fill")?.GetComponent<Image>();
             if (mpFill != null)
             {
+                mpFill.sprite = GetDefaultWhiteSprite();
                 mpFill.type = Image.Type.Filled;
                 mpFill.fillMethod = Image.FillMethod.Horizontal;
                 mpFill.fillOrigin = 0;

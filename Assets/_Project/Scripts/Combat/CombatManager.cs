@@ -1038,6 +1038,12 @@ namespace RPG.Combat
             }
             cameraFollowTarget = ally;
 
+            // Hiển thị HUD mục tiêu kẻ địch bị phản công trên UI
+            if (UIManager.Instance != null && enemy != null)
+            {
+                UIManager.Instance.ShowEnemyTargetsHUD(new List<CombatCharacter> { enemy });
+            }
+
             bool counterComplete = false;
             ally.PlayAttackAnimation(enemy.transform.position, ally.characterData.skillBasic, 
                 // Impact callback
@@ -1052,11 +1058,24 @@ namespace RPG.Combat
                     FloatingText.Instance.SpawnText(enemy.transform.position + Vector3.up * 1.5f, damageText, numberColor, isCrit ? 1.5f : 1.0f);
                     
                     ProceduralVFX.Instance.SpawnVFX(ally.characterData.skillBasic, enemy.transform.position);
+
+                    // Cập nhật thanh máu kẻ địch trên UI
+                    if (UIManager.Instance != null)
+                    {
+                        UIManager.Instance.UpdateEnemyTargetsHUD();
+                    }
                 },
                 // Completion callback
                 () => {
                     cameraFollowTarget = null;
                     MoveCamera(defaultCameraPos, defaultCameraRot, 0.5f);
+
+                    // Ẩn HUD mục tiêu kẻ địch sau khi kết thúc đòn phản công
+                    if (UIManager.Instance != null)
+                    {
+                        UIManager.Instance.HideEnemyTargetHUD();
+                    }
+
                     counterComplete = true;
                 }
             );
