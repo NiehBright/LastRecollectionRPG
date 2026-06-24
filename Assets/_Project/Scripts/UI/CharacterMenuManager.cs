@@ -107,6 +107,7 @@ namespace RPG.Combat
                 foreach (var data in customChars)
                 {
                     if (data == null) continue;
+                    if (data.isEnemy) continue; // Bỏ qua quái vật
 
                     var cmd = new CharacterMenuData
                     {

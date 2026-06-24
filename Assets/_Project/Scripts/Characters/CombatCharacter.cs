@@ -72,6 +72,13 @@ namespace RPG.Combat
         private Vector3 originalPosition;
         private Coroutine activeAnimCoroutine;
 
+        [Header("Trạng thái Hoạt ảnh đã Phân giải")]
+        private string resolvedIdleState = "Idle";
+        private string resolvedRunState = "Run";
+        private string resolvedDefendState = "Defend";
+        private string resolvedHitState = "Hit";
+        private string resolvedDieState = "Die";
+
         [Header("UI nổi (Floating HUD)")]
         private Canvas hudCanvas;
         private Image hpBarFill;
@@ -149,11 +156,13 @@ namespace RPG.Combat
                     anim.gameObject.AddComponent<AnimationEventReceiver>();
                 }
                 
+                ResolveAnimationStates(anim);
+
                 if (anim.runtimeAnimatorController != null && anim.layerCount > 0)
                 {
-                    if (anim.HasState(0, Animator.StringToHash("Idle")))
+                    if (anim.HasState(0, Animator.StringToHash(resolvedIdleState)))
                     {
-                        anim.Play("Idle");
+                        anim.Play(resolvedIdleState);
                     }
                 }
             }
@@ -199,6 +208,34 @@ namespace RPG.Combat
                 newOverrideController.ApplyOverrides(overrides);
                 animator.runtimeAnimatorController = newOverrideController;
             }
+        }
+
+        private void ResolveAnimationStates(Animator anim)
+        {
+            if (anim == null) return;
+
+            string[] idleFallbacks = { "Idle", "idle", "CombatIdle", "combat_idle", "Stand", "stand", "Normal", "normal", "Combat_Idle" };
+            string[] runFallbacks = { "Run", "run", "Walk", "walk", "Move", "move", "Sprint", "sprint" };
+            string[] defendFallbacks = { "Defend", "defend", "Guard", "guard", "Block", "block" };
+            string[] hitFallbacks = { "Hit", "hit", "TakeDamage", "take_damage", "Damage", "damage", "GetHit", "get_hit" };
+            string[] dieFallbacks = { "Die", "die", "Death", "death", "Dead", "dead" };
+
+            resolvedIdleState = GetValidStateName(anim, "Idle", idleFallbacks);
+            resolvedRunState = GetValidStateName(anim, "Run", runFallbacks);
+            resolvedDefendState = GetValidStateName(anim, "Defend", defendFallbacks);
+            resolvedHitState = GetValidStateName(anim, "Hit", hitFallbacks);
+            resolvedDieState = GetValidStateName(anim, "Die", dieFallbacks);
+        }
+
+        private string GetValidStateName(Animator anim, string defaultState, string[] fallbacks)
+        {
+            if (anim == null) return defaultState;
+            if (anim.HasState(0, Animator.StringToHash(defaultState))) return defaultState;
+            foreach (var fallback in fallbacks)
+            {
+                if (anim.HasState(0, Animator.StringToHash(fallback))) return fallback;
+            }
+            return defaultState;
         }
 
         private void CreateProceduralModel()
@@ -733,9 +770,9 @@ namespace RPG.Combat
             Animator anim = GetComponentInChildren<Animator>();
             if (anim != null && anim.runtimeAnimatorController != null && anim.layerCount > 0)
             {
-                if (anim.HasState(0, Animator.StringToHash("Idle")))
+                if (anim.HasState(0, Animator.StringToHash(resolvedIdleState)))
                 {
-                    anim.CrossFadeInFixedTime("Idle", 0.15f);
+                    anim.CrossFadeInFixedTime(resolvedIdleState, 0.15f);
                 }
             }
         }
@@ -794,10 +831,14 @@ namespace RPG.Combat
             Animator anim = GetComponentInChildren<Animator>();
             if (anim != null && anim.runtimeAnimatorController != null && anim.layerCount > 0)
             {
-                if (anim.HasState(0, Animator.StringToHash("Hit")))
+                if (anim.HasState(0, Animator.StringToHash(resolvedHitState)))
                 {
-                    anim.CrossFadeInFixedTime("Hit", 0.1f);
+                    anim.CrossFadeInFixedTime(resolvedHitState, 0.1f);
                     StartCoroutine(CoReturnToIdleAfterHit(0.5f));
+                }
+                else
+                {
+                    StartCoroutine(CoReturnToIdleAfterHit(0.1f));
                 }
             }
         }
@@ -810,7 +851,7 @@ namespace RPG.Combat
                 Animator anim = GetComponentInChildren<Animator>();
                 if (anim != null && anim.runtimeAnimatorController != null && anim.layerCount > 0)
                 {
-                    string endState = isGuarding ? "Defend" : "Idle";
+                    string endState = isGuarding ? resolvedDefendState : resolvedIdleState;
                     if (anim.HasState(0, Animator.StringToHash(endState)))
                     {
                         anim.CrossFadeInFixedTime(endState, 0.15f);
@@ -859,9 +900,9 @@ namespace RPG.Combat
             {
                 if (anim != null && anim.runtimeAnimatorController != null && anim.layerCount > 0)
                 {
-                    if (anim.HasState(0, Animator.StringToHash("Run")))
+                    if (anim.HasState(0, Animator.StringToHash(resolvedRunState)))
                     {
-                        anim.CrossFadeInFixedTime("Run", 0.1f);
+                        anim.CrossFadeInFixedTime(resolvedRunState, 0.1f);
                     }
                 }
 
@@ -976,9 +1017,9 @@ namespace RPG.Combat
                 // 4. Lùi về vị trí cũ (0.3s)
                 if (anim != null && anim.runtimeAnimatorController != null && anim.layerCount > 0)
                 {
-                    if (anim.HasState(0, Animator.StringToHash("Run")))
+                    if (anim.HasState(0, Animator.StringToHash(resolvedRunState)))
                     {
-                        anim.CrossFadeInFixedTime("Run", 0.1f);
+                        anim.CrossFadeInFixedTime(resolvedRunState, 0.1f);
                     }
                 }
 
@@ -999,7 +1040,7 @@ namespace RPG.Combat
 
             if (anim != null && anim.runtimeAnimatorController != null && anim.layerCount > 0)
             {
-                string endState = isGuarding ? "Defend" : "Idle";
+                string endState = isGuarding ? resolvedDefendState : resolvedIdleState;
                 if (anim.HasState(0, Animator.StringToHash(endState)))
                 {
                     anim.CrossFadeInFixedTime(endState, 0.15f);
@@ -1115,9 +1156,9 @@ namespace RPG.Combat
             Animator anim = GetComponentInChildren<Animator>();
             if (anim != null && anim.runtimeAnimatorController != null && anim.layerCount > 0)
             {
-                if (anim.HasState(0, Animator.StringToHash("Die")))
+                if (anim.HasState(0, Animator.StringToHash(resolvedDieState)))
                 {
-                    anim.CrossFadeInFixedTime("Die", 0.15f);
+                    anim.CrossFadeInFixedTime(resolvedDieState, 0.15f);
                     yield return new WaitForSeconds(1.5f);
                 }
             }

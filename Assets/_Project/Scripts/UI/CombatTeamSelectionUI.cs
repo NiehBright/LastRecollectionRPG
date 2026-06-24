@@ -74,14 +74,20 @@ namespace RPG.Combat
                 foreach (var cmd in CharacterMenuManager.Instance.characters)
                 {
                     CharacterData cd = ConvertMenuDataToCharacterData(cmd);
-                    if (cd != null) availableList.Add(cd);
+                    if (cd != null && !cd.isEnemy) availableList.Add(cd);
                 }
             }
 
             if (availableList.Count == 0)
             {
                 CharacterData[] availableChars = Resources.LoadAll<CharacterData>("Characters");
-                availableList.AddRange(availableChars);
+                foreach (var cd in availableChars)
+                {
+                    if (cd != null && !cd.isEnemy)
+                    {
+                        availableList.Add(cd);
+                    }
+                }
             }
 
             for (int i = 0; i < 4; i++)
@@ -819,14 +825,20 @@ namespace RPG.Combat
                 foreach (var cmd in CharacterMenuManager.Instance.characters)
                 {
                     CharacterData cd = ConvertMenuDataToCharacterData(cmd);
-                    if (cd != null) allChars.Add(cd);
+                    if (cd != null && !cd.isEnemy) allChars.Add(cd);
                 }
             }
 
             if (allChars.Count == 0)
             {
                 CharacterData[] availableChars = Resources.LoadAll<CharacterData>("Characters");
-                allChars.AddRange(availableChars);
+                foreach (var cd in availableChars)
+                {
+                    if (cd != null && !cd.isEnemy)
+                    {
+                        allChars.Add(cd);
+                    }
+                }
             }
 
             // Nút "GỠ BỎ NHÂN VẬT" (Remove)

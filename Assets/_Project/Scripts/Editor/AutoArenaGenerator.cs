@@ -37,11 +37,8 @@ namespace RPG.Combat
                 setup.GenerateCombatArena();
                 EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
                 Debug.Log("[AutoArenaGenerator] Đã tự động sinh cấu trúc Combat Arena cho Scene hiện tại!");
-            }
-            else
-            {
-                Debug.LogWarning("[AutoArenaGenerator] Không tìm thấy CombatSetup component trong Scene hiện tại.");
-            }
         }
     }
 }
+}
+
