@@ -13,6 +13,7 @@ namespace RPG.Combat
         public Sprite avatar;
         public Color themeColor = Color.white; // Màu đại diện cho mô hình 3D procedural
         public bool isRecollectionUnlocked = true;
+        public bool isEnemy = false;
 
         [Header("Chỉ số cơ bản")]
         public float baseMaxHP = 500f;

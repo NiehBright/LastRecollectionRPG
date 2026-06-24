@@ -19,6 +19,7 @@ namespace RPG.Combat
         private ElementType element = ElementType.Physical;
         private Sprite avatar;
         private Color themeColor = Color.red;
+        private bool isEnemy = false;
 
         // Chỉ số cơ bản (Stats)
         private float maxHP = 800f;
@@ -72,6 +73,7 @@ namespace RPG.Combat
                     element = (ElementType)EditorGUILayout.EnumPopup("Thuộc tính (Element)", element);
                     avatar = (Sprite)EditorGUILayout.ObjectField("Ảnh đại diện (Avatar)", avatar, typeof(Sprite), false);
                     themeColor = EditorGUILayout.ColorField("Màu chủ đạo (Theme Color)", themeColor);
+                    isEnemy = EditorGUILayout.Toggle("Là Quái Vật/Kẻ Địch? (Is Enemy)", isEnemy);
 
                     GUILayout.Space(15);
 
@@ -183,6 +185,7 @@ namespace RPG.Combat
             CharacterData charData = ScriptableObject.CreateInstance<CharacterData>();
             charData.characterId = charId;
             charData.characterName = charName;
+            charData.isEnemy = isEnemy;
             charData.element = element;
             charData.avatar = avatar;
             charData.themeColor = themeColor;
@@ -212,9 +215,9 @@ namespace RPG.Combat
             Debug.Log($"[CharacterBuilder] Đã tạo CharacterData tại: {charDataPath}");
 
             // 4. Tạo Prefab nhân vật hoàn chỉnh
-            GameObject tempGO = new GameObject($"Ally_{charName}");
+            GameObject tempGO = new GameObject(isEnemy ? $"Enemy_{charName}" : $"Ally_{charName}");
             CombatCharacter cc = tempGO.AddComponent<CombatCharacter>();
-            cc.isAlly = true; // Mặc định gán là phe ta
+            cc.isAlly = !isEnemy; // Gán phe ta hoặc phe địch
             cc.characterData = charData;
 
             if (modelPrefab != null)
